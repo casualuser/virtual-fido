@@ -25,7 +25,7 @@ func prompt(prompt string) bool {
 		panic(err)
 	}
 	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "y" || response == "yes" {
+	if response == "" || response == "y" || response == "yes" {
 		return true
 	}
 	return false
