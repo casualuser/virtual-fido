@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -39,13 +40,24 @@ func genSeedCmd() *cobra.Command {
 }
 
 func runCmd() *cobra.Command {
-	return &cobra.Command{
+	var seedFile string
+	var vaultPath string
+	var transport string
+	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run virtual authenticator (seed-based)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("run: not implemented yet")
 		},
 	}
+	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex-encoded seed (if empty, read from stdin)")
+	cmd.Flags().StringVar(&vaultPath, "vault", "", "path to encrypted counter vault (required)")
+	defaultTransport := "usbip"
+	if runtime.GOOS == "linux" {
+		defaultTransport = "uhid"
+	}
+	cmd.Flags().StringVar(&transport, "transport", defaultTransport, "transport: uhid (Linux) or usbip (default usbip on non-Linux, uhid on Linux)")
+	return cmd
 }
 
 func watchOnlyCmd() *cobra.Command {
