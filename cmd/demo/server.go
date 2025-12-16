@@ -1,35 +1,17 @@
 package main
 
 import (
-	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"strings"
-	"sync"
-	"time"
 
 	virtual_fido "github.com/bulwarkid/virtual-fido"
 	"github.com/bulwarkid/virtual-fido/fido_client"
+	"github.com/bulwarkid/virtual-fido/transport"
 )
 
-func prompt(prompt string) bool {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println(prompt)
-	fmt.Print("--> ")
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Printf("Could not read user input: %s - %s\n", response, err)
-		panic(err)
-	}
-	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "" || response == "y" || response == "yes" {
-		return true
-	}
-	return false
-}
+func prompt(prompt string) bool { return transport.Prompt(prompt) }
 
 type ClientSupport struct {
 	vaultFilename   string
@@ -73,56 +55,14 @@ func (support *ClientSupport) Passphrase() string {
 	return support.vaultPassphrase
 }
 
-func runUsbipServer(client virtual_fido.FIDOClient) {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		virtual_fido.Start(client)
-		wg.Done()
-	}()
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		prog := platformUSBIPExec()
-		if prog != nil {
-			prog.Stdin = os.Stdin
-			prog.Stdout = os.Stdout
-			prog.Stderr = os.Stderr
-			err := prog.Run()
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-			}
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-}
-
-func runUhidServer(client virtual_fido.FIDOClient) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		// Let Ctrl+C stop the process; StartUHID exits on ctx cancel.
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt)
-		<-sig
-		cancel()
-	}()
-
-	err := virtual_fido.StartUHID(ctx, client, "Virtual FIDO")
-	if err != nil {
-		fmt.Printf("UHID error: %v\n", err)
-	}
-}
-
 func runServer(client virtual_fido.FIDOClient) {
-	switch strings.ToLower(transport) {
+	switch strings.ToLower(transportMode) {
 	case "usbip":
-		runUsbipServer(client)
+		transport.Start(transport.ModeUSBIP, client, "Virtual FIDO")
 	case "uhid":
-		runUhidServer(client)
+		transport.Start(transport.ModeUHID, client, "Virtual FIDO")
 	default:
 		fmt.Printf("Unknown transport %q; expected usbip or uhid\n",
-			transport)
+			transportMode)
 	}
 }
