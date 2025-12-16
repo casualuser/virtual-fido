@@ -19,6 +19,7 @@ var vaultFilename string
 var vaultPassphrase string
 var identityID string
 var verbose bool
+var transport string
 
 func checkErr(err error, message string) {
 	if err != nil {
@@ -123,6 +124,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&vaultFilename, "vault", "", "vault.json", "Identity vault filename")
 	rootCmd.PersistentFlags().StringVarP(&vaultPassphrase, "passphrase", "", "passphrase", "Identity vault passphrase")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+	rootCmd.PersistentFlags().StringVar(&transport, "transport", "usbip", "Transport: usbip or uhid (Linux)")
 	rootCmd.MarkFlagRequired("vault")
 	rootCmd.MarkFlagRequired("passphrase")
 	rootCmd.CompletionOptions.DisableDefaultCmd = true

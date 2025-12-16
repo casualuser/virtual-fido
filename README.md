@@ -34,5 +34,11 @@ Run `go run ./cmd/demo start` to attach the USB device. Run `go run ./cmd/demo -
 
 Note that this tool requires elevated permissions.
 
+#### usbip (depends on external binary)
 1. Run `sudo modprobe vhci-hcd` to load the necessary drivers.
 2. Run `sudo go run ./cmd/demo start` to start up the USB device server. Authenticate when `sudo` prompts you; this is necessary to attach the device.
+
+#### UHID (pure Go, self-contained, Linux only)
+1. Ensure `/dev/uhid` is accessible (usually requires root).
+2. Use `virtual_fido.StartUHID(ctx, client, "Virtual FIDO")` in your own program to run without usbip.
+   (The demo CLI still uses usbip by defailt, pass `--transport uhid` to use UHID.)

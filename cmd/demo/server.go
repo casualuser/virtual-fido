@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
 	"time"
@@ -71,7 +73,7 @@ func (support *ClientSupport) Passphrase() string {
 	return support.vaultPassphrase
 }
 
-func runServer(client virtual_fido.FIDOClient) {
+func runUsbipServer(client virtual_fido.FIDOClient) {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
@@ -93,4 +95,34 @@ func runServer(client virtual_fido.FIDOClient) {
 		wg.Done()
 	}()
 	wg.Wait()
+}
+
+func runUhidServer(client virtual_fido.FIDOClient) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		// Let Ctrl+C stop the process; StartUHID exits on ctx cancel.
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt)
+		<-sig
+		cancel()
+	}()
+
+	err := virtual_fido.StartUHID(ctx, client, "Virtual FIDO")
+	if err != nil {
+		fmt.Printf("UHID error: %v\n", err)
+	}
+}
+
+func runServer(client virtual_fido.FIDOClient) {
+	switch strings.ToLower(transport) {
+	case "usbip":
+		runUsbipServer(client)
+	case "uhid":
+		runUhidServer(client)
+	default:
+		fmt.Printf("Unknown transport %q; expected usbip or uhid\n",
+			transport)
+	}
 }
