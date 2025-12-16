@@ -7,6 +7,7 @@ Virtual FIDO is a virtual USB device that implements the FIDO2/U2F protocol (lik
 ## Features
 
 -   Support for both Windows and Linux through USB/IP (Mac support coming later)
+-   Pure Go UHID transport on Linux (no usbip dependency)
 -   Connect using both U2F and FIDO2 protocols for both normal 2FA and WebAuthN
 -   Store credentials in an encrypted format with a passphrase
 -   Store credential data anywhere (example provided: a local file)
@@ -14,7 +15,12 @@ Virtual FIDO is a virtual USB device that implements the FIDO2/U2F protocol (lik
 
 ## How it works
 
-Virtual FIDO creates a USB/IP server over local TCP to attach a virtual USB device. This USB device then emulates the USB/CTAP protocols to provide U2F/FIDO services to the host computer. In the demo, credentials created by the virtual device are stored in a local file, and approvals are done using the terminal.
+Virtual FIDO creates a virtual HID authenticator. On Linux you can choose:
+
+- USB/IP server over local TCP to attach a virtual USB device (depends on `usbip` binary), or
+- UHID (pure Go, no usbip) which creates a local `/dev/uhid` device.
+
+Both expose U2F and CTAP2 over CTAPHID. In the demo, credentials created by the virtual device are stored in a local file, and approvals are done using the terminal.
 
 ## Demo Usage
 
