@@ -118,7 +118,10 @@ func (client *DefaultFIDOClient) GetAssertionSource(relyingPartyID string, allow
 	return credentialSource
 }
 
-func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty string) bool {
+func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty, rpID string) bool {
+	if relyingParty == "" {
+		relyingParty = rpID
+	}
 	params := ClientActionRequestParams{
 		RelyingParty: relyingParty,
 	}

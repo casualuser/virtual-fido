@@ -86,7 +86,7 @@ type CTAPClient interface {
 	PINKeyAgreement() *crypto.ECDHKey
 	PINToken() []byte
 
-	ApproveAccountCreation(relyingParty string) bool
+	ApproveAccountCreation(rpName, rpID string) bool
 	ApproveAccountLogin(credentialSource *identities.CredentialSource) bool
 }
 
@@ -230,7 +230,7 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		}
 	}
 
-	if !server.client.ApproveAccountCreation(args.RP.Name) {
+	if !server.client.ApproveAccountCreation(args.RP.Name, args.RP.ID) {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
 		return []byte{byte(ctap2ErrOperationDenied)}
 	}
