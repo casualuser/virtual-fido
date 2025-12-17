@@ -385,6 +385,10 @@ func runOnlineUHID(name string) error {
 	}
 	defer dev.Close()
 	dev.WaitReady()
+	go func() {
+		<-ctx.Done()
+		_ = dev.Close()
+	}()
 
 	fmt.Printf("Online-only UHID relay started as %q. Copy request hex to offline-only and paste responses back.\n", name)
 	reader := bufio.NewReader(os.Stdin)
