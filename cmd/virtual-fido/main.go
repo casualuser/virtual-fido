@@ -281,6 +281,9 @@ type offlineProxy struct {
 }
 
 func (p *offlineProxy) HandleMessage(data []byte) []byte {
+	if p.kind == airgap.HIDKindCTAP && len(data) > 0 && data[0] == 0x04 {
+		return buildStaticGetInfo()
+	}
 	meta := summarizeRequest(p.kind, data)
 	req := &airgap.HIDRequest{
 		Kind:     p.kind,
@@ -350,6 +353,20 @@ func summarizeRequest(kind airgap.HIDKind, data []byte) requestMeta {
 		}
 	}
 	return requestMeta{}
+}
+
+func buildStaticGetInfo() []byte {
+	resp := map[int]interface{}{
+		1: []string{"FIDO_2_0", "U2F_V2"},
+		3: ctap.DefaultAAGUID,
+		4: map[string]bool{
+			"plat": false,
+			"rk":   false,
+			"up":   true,
+		},
+	}
+	payload := util.MarshalCBOR(resp)
+	return append([]byte{0x00}, payload...)
 }
 func runOnlineUHID(name string) error {
 	ctx, cancel := context.WithCancel(context.Background())

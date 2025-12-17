@@ -91,7 +91,7 @@ func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.Public
 	}
 	credID := allowList[0].ID
 	priv := deriveKey(c.seed, credID)
-	count := c.counters.IncrementCred(credID)
+	current, _ := c.counters.CredValue(credID)
 	userName := hex.EncodeToString(credID)
 	cs := identities.CredentialSource{
 		Type:       "public-key",
@@ -106,9 +106,15 @@ func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.Public
 			Name:        userName,
 			DisplayName: userName,
 		},
-		SignatureCounter: int32(count),
+		SignatureCounter: int32(current),
 	}
 	return &cs
+}
+
+func (c *SeedClient) BumpSignatureCounter(cs *identities.CredentialSource) int32 {
+	count := c.counters.IncrementCred(cs.ID)
+	cs.SignatureCounter = int32(count)
+	return cs.SignatureCounter
 }
 
 func (c *SeedClient) CreateAttestationCertificiate(priv *cose.SupportedCOSEPrivateKey) []byte {
