@@ -5,13 +5,16 @@ import (
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"math/big"
 
 	"github.com/bulwarkid/virtual-fido/cose"
 	"github.com/bulwarkid/virtual-fido/crypto"
+	"github.com/bulwarkid/virtual-fido/ctap"
 	"github.com/bulwarkid/virtual-fido/fido_client"
 	"github.com/bulwarkid/virtual-fido/identities"
+	"github.com/bulwarkid/virtual-fido/u2f"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 	"golang.org/x/crypto/hkdf"
 )
@@ -89,21 +92,32 @@ func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.Public
 	credID := allowList[0].ID
 	priv := deriveKey(c.seed, credID)
 	count := c.counters.IncrementCred(credID)
-	user := &webauthn.PublicKeyCrendentialUserEntity{ID: []byte{}, Name: hex.EncodeToString(credID), DisplayName: hex.EncodeToString(credID)}
+	userName := hex.EncodeToString(credID)
 	cs := identities.CredentialSource{
-		Type:             "public-key",
-		ID:               credID,
-		PrivateKey:       &cose.SupportedCOSEPrivateKey{ECDSA: priv},
-		RelyingParty:     &webauthn.PublicKeyCredentialRPEntity{ID: rpID, Name: rpID},
-		User:             user,
+		Type:       "public-key",
+		ID:         credID,
+		PrivateKey: &cose.SupportedCOSEPrivateKey{ECDSA: priv},
+		RelyingParty: &webauthn.PublicKeyCredentialRPEntity{
+			ID:   rpID,
+			Name: rpID,
+		},
+		User: &webauthn.PublicKeyCrendentialUserEntity{
+			ID:          []byte{},
+			Name:        userName,
+			DisplayName: userName,
+		},
 		SignatureCounter: int32(count),
 	}
 	return &cs
 }
 
 func (c *SeedClient) CreateAttestationCertificiate(priv *cose.SupportedCOSEPrivateKey) []byte {
-	// For simplicity, return empty to indicate self/none attestation.
-	return []byte{}
+	caCert, caKey := c.attestationCA()
+	cert, err := identities.CreateSelfSignedAttestationCertificate(caCert, caKey, priv)
+	if err != nil || cert == nil {
+		return nil
+	}
+	return cert.Raw
 }
 
 func (c *SeedClient) ApproveAccountCreation(rpName, rpID string) bool {
@@ -133,7 +147,6 @@ func (c *SeedClient) PINToken() []byte                 { return nil }
 func (c *SeedClient) SealingEncryptionKey() []byte { return hkdfBytes(c.seed, "u2f-seal", 32) }
 
 func (c *SeedClient) NewPrivateKey() *ecdsa.PrivateKey {
-	// Random is fine; key handle is sealed with the deterministic sealing key.
 	return crypto.GenerateECDSAKey()
 }
 
@@ -190,3 +203,25 @@ func hkdfBytes(seed []byte, info string, size int) []byte {
 	}
 	return out
 }
+
+// Derive deterministic attestation CA from seed.
+func (c *SeedClient) attestationCA() (*x509.Certificate, *cose.SupportedCOSEPrivateKey) {
+	seedKey := hkdfBytes(c.seed, "attca", 32)
+	d := new(big.Int).SetBytes(seedKey)
+	curve := elliptic.P256()
+	n := curve.Params().N
+	d.Mod(d, new(big.Int).Sub(n, big.NewInt(1)))
+	d.Add(d, big.NewInt(1))
+	priv := &ecdsa.PrivateKey{PublicKey: ecdsa.PublicKey{Curve: curve}, D: d}
+	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
+	caPriv := &cose.SupportedCOSEPrivateKey{ECDSA: priv}
+	caCert, err := identities.CreateSelfSignedCA(caPriv)
+	if err != nil {
+		return nil, nil
+	}
+	return caCert, caPriv
+}
+
+// Ensure interface compliance.
+var _ ctap.CTAPClient = (*SeedClient)(nil)
+var _ u2f.U2FClient = (*SeedClient)(nil)
