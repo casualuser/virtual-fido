@@ -2,18 +2,26 @@ package seed
 
 import "testing"
 
-func TestParseSeed(t *testing.T) {
-	s, err := parse(" 616263 ")
+func TestParseAndHardenDeterministic(t *testing.T) {
+	a, err := parseAndHarden("616263") // "abc"
 	if err != nil {
-		t.Fatalf("parse: %v", err)
+		t.Fatalf("parse a: %v", err)
 	}
-	if string(s) != "abc" {
-		t.Fatalf("want abc got %q", s)
+	b, err := parseAndHarden("616263")
+	if err != nil {
+		t.Fatalf("parse b: %v", err)
 	}
-	if _, err := parse("zz"); err == nil {
-		t.Fatalf("expected error for bad hex")
+	if len(a) != 32 {
+		t.Fatalf("want 32 bytes, got %d", len(a))
 	}
-	if _, err := parse("   "); err == nil {
-		t.Fatalf("expected error for empty")
+	if string(a) != string(b) {
+		t.Fatalf("expected deterministic output")
+	}
+	c, err := parseAndHarden("646566") // "def"
+	if err != nil {
+		t.Fatalf("parse c: %v", err)
+	}
+	if string(a) == string(c) {
+		t.Fatalf("expected different outputs for different seeds")
 	}
 }

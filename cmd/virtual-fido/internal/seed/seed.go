@@ -8,7 +8,18 @@ import (
 	"os"
 	"strings"
 	"unicode"
+
+	"golang.org/x/crypto/argon2"
 )
+
+const (
+	argonTime    uint32 = 1         // iterations
+	argonMemory  uint32 = 64 * 1024 // KiB (64 MiB)
+	argonThreads uint8  = 4
+	argonLength  uint32 = 32
+)
+
+var argonSalt = []byte("virtual-fido-seed-salt-v1")
 
 // Load reads a hex-encoded seed from a file path or stdin if path is empty.
 func Load(path string) ([]byte, error) {
@@ -17,7 +28,7 @@ func Load(path string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		return parse(strings.TrimSpace(string(data)))
+		return parseAndHarden(strings.TrimSpace(string(data)))
 	}
 	return readFromStdin()
 }
@@ -29,10 +40,10 @@ func readFromStdin() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parse(strings.TrimSpace(line))
+	return parseAndHarden(strings.TrimSpace(line))
 }
 
-func parse(s string) ([]byte, error) {
+func parseAndHarden(s string) ([]byte, error) {
 	clean := make([]rune, 0, len(s))
 	for _, r := range s {
 		if unicode.IsSpace(r) {
@@ -47,5 +58,9 @@ func parse(s string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid seed hex: %w", err)
 	}
-	return b, nil
+	return harden(b), nil
+}
+
+func harden(seed []byte) []byte {
+	return argon2.IDKey(seed, argonSalt, argonTime, argonMemory, argonThreads, argonLength)
 }
