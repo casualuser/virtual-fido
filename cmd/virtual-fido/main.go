@@ -27,7 +27,7 @@ func main() {
 		Short: "Seed-based virtual FIDO toolchain",
 	}
 
-	root.AddCommand(genSeedCmd(), runCmd(), watchOnlyCmd(), vaultCmd())
+	root.AddCommand(genSeedCmd(), runCmd(), onlineOnlyCmd(), offlineOnlyCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -157,10 +157,10 @@ func defaultTransport() transport.Mode {
 	return transport.ModeUSBIP
 }
 
-func watchOnlyCmd() *cobra.Command {
+func onlineOnlyCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "watch-only",
-		Short: "Run in watch-only mode (air-gapped flow)",
+		Use:   "online-only",
+		Short: "Run online relay mode (air-gapped flow)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("Paste request hex from authenticator (or stdin):")
 			reader := bufio.NewReader(os.Stdin)
@@ -177,7 +177,7 @@ func watchOnlyCmd() *cobra.Command {
 			}
 			fmt.Printf("RP: %s op=%d allowList=%d\n", req.RPID, req.Op, len(req.AllowList))
 			hexReq, _ := airgap.EncodeRequest(req)
-			fmt.Println("Send this hex to vault:")
+			fmt.Println("Send this hex to offline vault:")
 			fmt.Println(hexReq)
 			fmt.Println("Paste vault response hex:")
 			respHex, err := reader.ReadString('\n')
@@ -196,12 +196,12 @@ func watchOnlyCmd() *cobra.Command {
 	}
 }
 
-func vaultCmd() *cobra.Command {
+func offlineOnlyCmd() *cobra.Command {
 	var seedFile string
 	var vaultPath string
 	cmd := &cobra.Command{
-		Use:   "vault",
-		Short: "Process watch-only requests using seed and vault",
+		Use:   "offline-only",
+		Short: "Process online-only requests using seed and vault",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if vaultPath == "" {
 				return fmt.Errorf("--vault is required")
@@ -215,7 +215,7 @@ func vaultCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load vault: %w", err)
 			}
-			fmt.Println("Paste request hex from watch-only:")
+			fmt.Println("Paste request hex from online-only:")
 			reader := bufio.NewReader(os.Stdin)
 			line, err := reader.ReadString('\n')
 			if err != nil {

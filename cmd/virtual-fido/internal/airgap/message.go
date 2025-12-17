@@ -20,7 +20,7 @@ const (
 	OpGetAssertion   Operation = 2
 )
 
-// Request is a sanitized, serializable payload sent from watch-only to vault.
+// Request is a sanitized, serializable payload sent from the online relay to the vault.
 type Request struct {
 	Op             Operation `cbor:"1,keyasint"`
 	RPID           string    `cbor:"2,keyasint"`
@@ -44,7 +44,7 @@ func (r *Request) Validate() error {
 	return nil
 }
 
-// Response is sent from vault back to watch-only.
+// Response is sent from the vault back to the online relay.
 type Response struct {
 	Op                Operation `cbor:"1,keyasint"`
 	CredentialID      []byte    `cbor:"2,keyasint,omitempty"`
