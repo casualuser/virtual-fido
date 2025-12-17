@@ -3,6 +3,7 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -32,5 +33,21 @@ func TestHashSeed(t *testing.T) {
 	h := HashSeed([]byte("abc"))
 	if len(h) != 8 {
 		t.Fatalf("hash length=%d want 8", len(h))
+	}
+}
+
+func TestVaultString(t *testing.T) {
+	v := &Vault{
+		Counters: map[string]uint32{
+			string([]byte{0x01, 0x02}): 3,
+		},
+		AuthenticationCounter: 9,
+	}
+	out := v.String()
+	if !strings.Contains(out, "AuthenticationCounter=9") {
+		t.Fatalf("missing auth counter in output: %q", out)
+	}
+	if !strings.Contains(out, "0102") || !strings.Contains(out, "3") {
+		t.Fatalf("missing counter detail: %q", out)
 	}
 }

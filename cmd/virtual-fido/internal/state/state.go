@@ -11,6 +11,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/hkdf"
@@ -158,6 +161,36 @@ func HashSeed(seed []byte) string {
 	m.Write(seed)
 	sum := m.Sum(nil)
 	return hex.EncodeToString(sum[:4])
+}
+
+// String returns a human-readable snapshot of vault contents.
+func (v *Vault) String() string {
+	if v == nil {
+		return "<nil vault>"
+	}
+	var b strings.Builder
+	b.WriteString("AuthenticationCounter=")
+	b.WriteString(strconv.FormatUint(uint64(v.AuthenticationCounter), 10))
+	b.WriteString("\n")
+
+	keys := make([]string, 0, len(v.Counters))
+	for k := range v.Counters {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	b.WriteString("Counters:\n")
+	for _, k := range keys {
+		count := v.Counters[k]
+		b.WriteString("  ")
+		b.WriteString(hex.EncodeToString([]byte(k)))
+		b.WriteString(": ")
+		b.WriteString(strconv.FormatUint(uint64(count), 10))
+		b.WriteByte('\n')
+	}
+	if len(keys) == 0 {
+		b.WriteString("  (none)\n")
+	}
+	return b.String()
 }
 
 // populateCounters initializes the Counters map from Entries for in-memory use.

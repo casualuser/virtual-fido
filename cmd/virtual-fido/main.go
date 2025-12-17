@@ -78,6 +78,8 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load vault: %w", err)
 			}
+			fmt.Println("Loaded vault:")
+			fmt.Print(counters.String())
 			approver := promptApprover{alwaysApprove: alwaysApprove}
 			cl := client.New(seedBytes, counters, approver)
 			mode := transport.Mode(transportFlag)
@@ -339,6 +341,8 @@ func runOfflineVault(seedFile, vaultPath string) error {
 	if err != nil {
 		return fmt.Errorf("load vault: %w", err)
 	}
+	fmt.Println("Loaded vault:")
+	fmt.Print(counters.String())
 	approver := promptApprover{}
 	cl := client.New(seedBytes, counters, approver)
 

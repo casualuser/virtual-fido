@@ -56,3 +56,8 @@ func (c *CounterStore) IncrementGlobal() uint32 {
 func encodeKey(id []byte) string {
 	return string(id)
 }
+
+// String renders a human-readable view of counters.
+func (c *CounterStore) String() string {
+	return c.vault.String()
+}
