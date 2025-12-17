@@ -66,6 +66,7 @@ type HIDKind uint8
 const (
 	HIDKindCTAP HIDKind = 1
 	HIDKindU2F  HIDKind = 2
+	HIDKindInit HIDKind = 3
 )
 
 // HIDRequest represents a full CTAPHID message (already de-fragmented) to send offline.

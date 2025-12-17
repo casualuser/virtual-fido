@@ -355,6 +355,36 @@ func summarizeRequest(kind airgap.HIDKind, data []byte) requestMeta {
 	return requestMeta{}
 }
 
+func handleLocal(report []byte) (bool, []byte) {
+	if len(report) < 7 {
+		return false, nil
+	}
+	cmd := report[4]
+	switch cmd {
+	case 0x86: // INIT
+		payload := report[7:]
+		if len(payload) < 8 {
+			return true, nil
+		}
+		nonce := payload[:8]
+		newCID := uint32(1)
+		respPayload := make([]byte, 0, 8+4+5)
+		respPayload = append(respPayload, nonce...)
+		respPayload = append(respPayload, util.ToLE(newCID)...)
+		respPayload = append(respPayload, byte(2))    // proto ver
+		respPayload = append(respPayload, 0, 0, 1)    // dev ver
+		respPayload = append(respPayload, byte(0x04)) // caps: CBOR
+		packet := util.Concat(util.ToLE(uint32(0xffffffff)), []byte{cmd}, util.ToBE(uint16(len(respPayload))), respPayload)
+		return true, util.Pad(packet, 64)
+	case 0x81: // PING
+		return true, report
+	case 0xBB: // KEEPALIVE
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
 func buildStaticGetInfo() []byte {
 	resp := map[int]interface{}{
 		1: []string{"FIDO_2_0", "U2F_V2"},
@@ -410,6 +440,12 @@ func runOnlineUHID(name string) error {
 		report, err := dev.ReadReport(ctx)
 		if err != nil {
 			return err
+		}
+		if handled, resp := handleLocal(report); handled {
+			if resp != nil {
+				_ = dev.WriteReport(ctx, resp)
+			}
+			continue
 		}
 		hidServer.HandleMessage(report)
 	}
