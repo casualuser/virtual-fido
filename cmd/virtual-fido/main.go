@@ -58,7 +58,7 @@ func genSeedCmd() *cobra.Command {
 
 func runCmd() *cobra.Command {
 	var seedFile string
-	var vaultPath string
+	var countersPath string
 	var transportFlag string
 	var deviceName string
 	var alwaysApprove bool
@@ -66,20 +66,24 @@ func runCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Run virtual authenticator (seed-based)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if vaultPath == "" {
-				return fmt.Errorf("--vault is required")
-			}
 			seedBytes, err := seed.Load(seedFile)
 			if err != nil {
 				return fmt.Errorf("load seed: %w", err)
 			}
-			store := state.NewStore(vaultPath, seedBytes)
-			counters, err := state.NewCounterStore(store)
-			if err != nil {
-				return fmt.Errorf("load vault: %w", err)
+			var counters client.CounterState
+			if countersPath == "" {
+				fmt.Println("Using in-memory time-based counters")
+				counters = state.NewTimeBasedCounterStore(0, nil)
+			} else {
+				store := state.NewStore(countersPath, seedBytes)
+				cs, err := state.NewCounterStore(store)
+				if err != nil {
+					return fmt.Errorf("load counters: %w", err)
+				}
+				fmt.Println("Loaded counters:")
+				fmt.Print(cs.String())
+				counters = cs
 			}
-			fmt.Println("Loaded vault:")
-			fmt.Print(counters.String())
 			approver := promptApprover{alwaysApprove: alwaysApprove}
 			cl := client.New(seedBytes, counters, approver)
 			mode := transport.Mode(transportFlag)
@@ -94,7 +98,7 @@ func runCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex-encoded seed (if empty, read from stdin)")
-	cmd.Flags().StringVar(&vaultPath, "vault", "", "path to encrypted counter vault (required)")
+	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
 	defaultTransport := "usbip"
 	if runtime.GOOS == "linux" {
 		defaultTransport = "uhid"
@@ -217,19 +221,16 @@ func onlineOnlyCmd() *cobra.Command {
 
 func offlineOnlyCmd() *cobra.Command {
 	var seedFile string
-	var vaultPath string
+	var countersPath string
 	cmd := &cobra.Command{
 		Use:   "offline-only",
 		Short: "Process online-only requests using seed and vault",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if vaultPath == "" {
-				return fmt.Errorf("--vault is required")
-			}
-			return runOfflineVault(seedFile, vaultPath)
+			return runOfflineVault(seedFile, countersPath)
 		},
 	}
 	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex seed (if empty, stdin)")
-	cmd.Flags().StringVar(&vaultPath, "vault", "", "path to encrypted counter vault (required)")
+	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
 	return cmd
 }
 
@@ -441,13 +442,20 @@ func runOfflineVault(seedFile, vaultPath string) error {
 	if err != nil {
 		return fmt.Errorf("load seed: %w", err)
 	}
-	store := state.NewStore(vaultPath, seedBytes)
-	counters, err := state.NewCounterStore(store)
-	if err != nil {
-		return fmt.Errorf("load vault: %w", err)
+	var counters client.CounterState
+	if vaultPath == "" {
+		fmt.Println("Using in-memory time-based counters")
+		counters = state.NewTimeBasedCounterStore(0, nil)
+	} else {
+		store := state.NewStore(vaultPath, seedBytes)
+		cs, err := state.NewCounterStore(store)
+		if err != nil {
+			return fmt.Errorf("load vault: %w", err)
+		}
+		fmt.Println("Loaded vault:")
+		fmt.Print(cs.String())
+		counters = cs
 	}
-	fmt.Println("Loaded vault:")
-	fmt.Print(counters.String())
 	approver := promptApprover{}
 	cl := client.New(seedBytes, counters, approver)
 

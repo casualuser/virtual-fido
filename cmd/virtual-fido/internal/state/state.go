@@ -52,7 +52,7 @@ func NewStore(path string, seed []byte) *Store {
 // Load returns the stored vault (or an empty one if file missing).
 func (s *Store) Load() (*Vault, error) {
 	if s.path == "" {
-		return nil, errors.New("state path required")
+		return nil, nil
 	}
 	data, err := os.ReadFile(s.path)
 	if err != nil {
@@ -85,6 +85,9 @@ func (s *Store) Load() (*Vault, error) {
 func (s *Store) Save(v *Vault) error {
 	if v == nil {
 		return errors.New("vault nil")
+	}
+	if s.path == "" {
+		return nil
 	}
 	populateEntries(v)
 	plain, err := cbor.Marshal(v)
