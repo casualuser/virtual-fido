@@ -1,5 +1,7 @@
 package state
 
+import "encoding/hex"
+
 // CounterStore wraps a Store/Vault with simple increment helpers.
 type CounterStore struct {
 	store *Store
@@ -17,7 +19,7 @@ func NewCounterStore(store *Store) (*CounterStore, error) {
 
 // IncrementCred increments and returns the per-credential counter.
 func (c *CounterStore) IncrementCred(id []byte) uint32 {
-	key := string(id)
+	key := encodeKey(id)
 	val := c.vault.Counters[key]
 	val++
 	c.vault.Counters[key] = val
@@ -27,7 +29,7 @@ func (c *CounterStore) IncrementCred(id []byte) uint32 {
 
 // EnsureCred initializes a credential counter to zero if absent.
 func (c *CounterStore) EnsureCred(id []byte) {
-	key := string(id)
+	key := encodeKey(id)
 	if _, ok := c.vault.Counters[key]; !ok {
 		c.vault.Counters[key] = 0
 		_ = c.store.Save(c.vault)
@@ -36,13 +38,13 @@ func (c *CounterStore) EnsureCred(id []byte) {
 
 // CredValue returns the stored counter and whether it exists.
 func (c *CounterStore) CredValue(id []byte) (uint32, bool) {
-	val, ok := c.vault.Counters[string(id)]
+	val, ok := c.vault.Counters[encodeKey(id)]
 	return val, ok
 }
 
 // SetCred sets the counter to the given value.
 func (c *CounterStore) SetCred(id []byte, v uint32) {
-	c.vault.Counters[string(id)] = v
+	c.vault.Counters[encodeKey(id)] = v
 	_ = c.store.Save(c.vault)
 }
 
@@ -51,4 +53,8 @@ func (c *CounterStore) IncrementGlobal() uint32 {
 	c.vault.AuthenticationCounter++
 	_ = c.store.Save(c.vault)
 	return c.vault.AuthenticationCounter
+}
+
+func encodeKey(id []byte) string {
+	return hex.EncodeToString(id)
 }

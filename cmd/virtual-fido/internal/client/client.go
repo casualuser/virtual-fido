@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"math/big"
 
 	"github.com/bulwarkid/virtual-fido/cose"
@@ -53,6 +54,15 @@ func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialPa
 	if !supportsES256(params) {
 		return nil
 	}
+	if rp.Name == "" {
+		rp = &webauthn.PublicKeyCredentialRPEntity{ID: rp.ID, Name: rp.ID}
+	}
+	if user.Name == "" {
+		user.Name = string(user.ID)
+	}
+	if user.DisplayName == "" {
+		user.DisplayName = user.Name
+	}
 	credID := deriveCredID(c.seed, rp.ID, user.ID)
 	for _, ex := range excludeList {
 		if string(ex.ID) == string(credID) {
@@ -79,12 +89,13 @@ func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.Public
 	credID := allowList[0].ID
 	priv := deriveKey(c.seed, credID)
 	count := c.counters.IncrementCred(credID)
+	user := &webauthn.PublicKeyCrendentialUserEntity{ID: []byte{}, Name: hex.EncodeToString(credID), DisplayName: hex.EncodeToString(credID)}
 	cs := identities.CredentialSource{
 		Type:             "public-key",
 		ID:               credID,
 		PrivateKey:       &cose.SupportedCOSEPrivateKey{ECDSA: priv},
 		RelyingParty:     &webauthn.PublicKeyCredentialRPEntity{ID: rpID, Name: rpID},
-		User:             &webauthn.PublicKeyCrendentialUserEntity{ID: []byte{}},
+		User:             user,
 		SignatureCounter: int32(count),
 	}
 	return &cs
@@ -95,8 +106,11 @@ func (c *SeedClient) CreateAttestationCertificiate(priv *cose.SupportedCOSEPriva
 	return []byte{}
 }
 
-func (c *SeedClient) ApproveAccountCreation(rp string) bool {
-	return c.approver.ApproveClientAction(fido_client.ClientActionFIDOMakeCredential, fido_client.ClientActionRequestParams{RelyingParty: rp})
+func (c *SeedClient) ApproveAccountCreation(rpName, rpID string) bool {
+	if rpName == "" {
+		rpName = rpID
+	}
+	return c.approver.ApproveClientAction(fido_client.ClientActionFIDOMakeCredential, fido_client.ClientActionRequestParams{RelyingParty: rpName})
 }
 
 func (c *SeedClient) ApproveAccountLogin(cs *identities.CredentialSource) bool {

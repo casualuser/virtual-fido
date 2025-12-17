@@ -98,17 +98,25 @@ func runCmd() *cobra.Command {
 type promptApprover struct{}
 
 func (promptApprover) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool {
+	rp := params.RelyingParty
+	if rp == "" {
+		rp = "<unknown-rp>"
+	}
+	user := params.UserName
+	if user == "" {
+		user = "<unknown-user>"
+	}
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
-		ok := transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", params.RelyingParty))
+		ok := transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
 		if ok {
-			fmt.Printf("Approved registration for %q\n", params.RelyingParty)
+			fmt.Printf("Approved registration for %q\n", rp)
 		}
 		return ok
 	case fido_client.ClientActionFIDOGetAssertion:
-		ok := transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", params.RelyingParty, params.UserName))
+		ok := transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user))
 		if ok {
-			fmt.Printf("Approved login for %q user %q\n", params.RelyingParty, params.UserName)
+			fmt.Printf("Approved login for %q user %q\n", rp, user)
 		}
 		return ok
 	case fido_client.ClientActionU2FRegister:
