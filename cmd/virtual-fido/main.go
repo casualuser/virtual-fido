@@ -308,7 +308,7 @@ func runOnlineUHID(name string) error {
 		hexReq, _ := airgap.EncodePackets(batch)
 		fmt.Println("Request hex:")
 		fmt.Println(hexReq)
-		fmt.Println("Paste response hex from offline-only:")
+		fmt.Println("Paste response hex from offline-only (or press Enter to deny/skip):")
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return err
