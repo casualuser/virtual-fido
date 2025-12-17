@@ -77,6 +77,8 @@ type CTAPClient interface {
 		relyingParty *webauthn.PublicKeyCredentialRPEntity,
 		user *webauthn.PublicKeyCrendentialUserEntity) *identities.CredentialSource
 	GetAssertionSource(relyingPartyID string, allowList []webauthn.PublicKeyCredentialDescriptor) *identities.CredentialSource
+	// BumpSignatureCounter increments and returns the updated counter for the given credential source.
+	BumpSignatureCounter(credentialSource *identities.CredentialSource) int32
 	CreateAttestationCertificiate(privateKey *cose.SupportedCOSEPrivateKey) []byte
 
 	PINHash() []byte
@@ -360,6 +362,8 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 		flags = flags | authDataFlagUserPresent
 	}
 
+	newCount := server.client.BumpSignatureCounter(credentialSource)
+	credentialSource.SignatureCounter = newCount
 	authData := makeAuthData(args.RPID, credentialSource, nil, flags)
 	signature := credentialSource.PrivateKey.Sign(util.Concat(authData, args.ClientDataHash))
 
