@@ -1,7 +1,5 @@
 package state
 
-import "encoding/hex"
-
 // CounterStore wraps a Store/Vault with simple increment helpers.
 type CounterStore struct {
 	store *Store
@@ -56,5 +54,5 @@ func (c *CounterStore) IncrementGlobal() uint32 {
 }
 
 func encodeKey(id []byte) string {
-	return hex.EncodeToString(id)
+	return string(id)
 }

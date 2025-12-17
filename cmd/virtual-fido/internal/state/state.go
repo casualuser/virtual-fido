@@ -19,8 +19,17 @@ import (
 // Vault holds persisted counters keyed by credential ID.
 // AuthenticationCounter is the global U2F-style counter.
 type Vault struct {
-	Counters              map[string]uint32 `cbor:"1,keyasint"`
-	AuthenticationCounter uint32            `cbor:"2,keyasint"`
+	// Counters is runtime-only map keyed by raw credential bytes (string form).
+	Counters map[string]uint32 `cbor:"-"`
+	Entries  []CounterEntry    `cbor:"1,keyasint,omitempty"`
+
+	AuthenticationCounter uint32 `cbor:"2,keyasint"`
+}
+
+// CounterEntry is the on-disk form of a counter, keeping raw bytes (no hex).
+type CounterEntry struct {
+	ID    []byte `cbor:"1,keyasint"`
+	Count uint32 `cbor:"2,keyasint"`
 }
 
 // Store persists Vault as encrypted CBOR using a key derived from seed.
@@ -65,9 +74,7 @@ func (s *Store) Load() (*Vault, error) {
 	if err := cbor.Unmarshal(plain, &v); err != nil {
 		return nil, err
 	}
-	if v.Counters == nil {
-		v.Counters = map[string]uint32{}
-	}
+	populateCounters(&v)
 	return &v, nil
 }
 
@@ -76,9 +83,7 @@ func (s *Store) Save(v *Vault) error {
 	if v == nil {
 		return errors.New("vault nil")
 	}
-	if v.Counters == nil {
-		v.Counters = map[string]uint32{}
-	}
+	populateEntries(v)
 	plain, err := cbor.Marshal(v)
 	if err != nil {
 		return err
@@ -153,4 +158,28 @@ func HashSeed(seed []byte) string {
 	m.Write(seed)
 	sum := m.Sum(nil)
 	return hex.EncodeToString(sum[:4])
+}
+
+// populateCounters initializes the Counters map from Entries for in-memory use.
+func populateCounters(v *Vault) {
+	if v.Counters == nil {
+		v.Counters = make(map[string]uint32, len(v.Entries))
+	}
+	for _, e := range v.Entries {
+		v.Counters[string(e.ID)] = e.Count
+	}
+}
+
+// populateEntries rebuilds Entries from Counters before persisting.
+func populateEntries(v *Vault) {
+	if v.Counters == nil {
+		v.Counters = map[string]uint32{}
+	}
+	v.Entries = v.Entries[:0]
+	for k, c := range v.Counters {
+		v.Entries = append(v.Entries, CounterEntry{
+			ID:    []byte(k),
+			Count: c,
+		})
+	}
 }
