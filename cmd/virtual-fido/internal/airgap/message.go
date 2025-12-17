@@ -101,8 +101,7 @@ func DecodeResponse(s string) (*Response, error) {
 
 // PromptYesNo prompts on stdin with default yes.
 func PromptYesNo(prompt string) bool {
-	fmt.Println(prompt)
-	fmt.Print("--> ")
+	fmt.Printf("%s ", prompt)
 	reader := bufio.NewReader(os.Stdin)
 	line, _ := reader.ReadString('\n')
 	line = strings.ToLower(strings.TrimSpace(line))
