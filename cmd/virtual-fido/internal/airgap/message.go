@@ -55,6 +55,11 @@ type Response struct {
 	SignCount         uint32    `cbor:"7,keyasint,omitempty"`
 }
 
+// PacketBatch is a batch of raw HID reports used for online/offline relay.
+type PacketBatch struct {
+	Reports [][]byte `cbor:"1,keyasint"`
+}
+
 // EncodeRequest to hex for copy/paste.
 func EncodeRequest(req *Request) (string, error) {
 	b, err := cbor.Marshal(req)
@@ -86,6 +91,15 @@ func EncodeResponse(resp *Response) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// EncodePackets encodes a batch of HID reports to hex.
+func EncodePackets(batch PacketBatch) (string, error) {
+	b, err := cbor.Marshal(batch)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
 // DecodeResponse parses hex input after sanitizing printable ASCII.
 func DecodeResponse(s string) (*Response, error) {
 	bin, err := sanitizeHex(s)
@@ -97,6 +111,19 @@ func DecodeResponse(s string) (*Response, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return &resp, nil
+}
+
+// DecodePackets parses hex input into a packet batch.
+func DecodePackets(s string) (PacketBatch, error) {
+	bin, err := sanitizeHex(s)
+	if err != nil {
+		return PacketBatch{}, err
+	}
+	var batch PacketBatch
+	if err := cbor.Unmarshal(bin, &batch); err != nil {
+		return PacketBatch{}, fmt.Errorf("decode packets: %w", err)
+	}
+	return batch, nil
 }
 
 // PromptYesNo prompts on stdin with default yes.

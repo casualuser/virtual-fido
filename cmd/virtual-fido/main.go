@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"os"
+	"os/signal"
 	"runtime"
+	"strings"
 
 	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/airgap"
 	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/client"
@@ -14,8 +17,11 @@ import (
 	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/state"
 	"github.com/bulwarkid/virtual-fido/cose"
 	"github.com/bulwarkid/virtual-fido/ctap"
+	"github.com/bulwarkid/virtual-fido/ctap_hid"
 	"github.com/bulwarkid/virtual-fido/fido_client"
 	"github.com/bulwarkid/virtual-fido/transport"
+	"github.com/bulwarkid/virtual-fido/u2f"
+	"github.com/bulwarkid/virtual-fido/uhid"
 	"github.com/bulwarkid/virtual-fido/util"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 	"github.com/spf13/cobra"
@@ -158,42 +164,29 @@ func defaultTransport() transport.Mode {
 }
 
 func onlineOnlyCmd() *cobra.Command {
-	return &cobra.Command{
+	var transportFlag string
+	var deviceName string
+	cmd := &cobra.Command{
 		Use:   "online-only",
 		Short: "Run online relay mode (air-gapped flow)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("Paste request hex from authenticator (or stdin):")
-			reader := bufio.NewReader(os.Stdin)
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				return err
+			mode := transport.Mode(transportFlag)
+			if mode == "" {
+				mode = defaultTransport()
 			}
-			req, err := airgap.DecodeRequest(line)
-			if err != nil {
-				return fmt.Errorf("decode request: %w", err)
+			if mode != transport.ModeUHID {
+				return fmt.Errorf("online-only currently supports --transport uhid")
 			}
-			if err := req.Validate(); err != nil {
-				return fmt.Errorf("invalid request: %w", err)
+			if deviceName == "" {
+				deviceName = "Virtual FIDO (relay)"
 			}
-			fmt.Printf("RP: %s op=%d allowList=%d\n", req.RPID, req.Op, len(req.AllowList))
-			hexReq, _ := airgap.EncodeRequest(req)
-			fmt.Println("Send this hex to offline vault:")
-			fmt.Println(hexReq)
-			fmt.Println("Paste vault response hex:")
-			respHex, err := reader.ReadString('\n')
-			if err != nil {
-				return err
-			}
-			resp, err := airgap.DecodeResponse(respHex)
-			if err != nil {
-				return fmt.Errorf("decode response: %w", err)
-			}
-			outHex, _ := airgap.EncodeResponse(resp)
-			fmt.Println("Return this response to authenticator:")
-			fmt.Println(outHex)
-			return nil
+			return runOnlineUHID(deviceName)
 		},
 	}
+	defaultTransport := "uhid"
+	cmd.Flags().StringVar(&transportFlag, "transport", defaultTransport, "transport (only uhid is supported for online-only)")
+	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO (relay)", "UHID device name")
+	return cmd
 }
 
 func offlineOnlyCmd() *cobra.Command {
@@ -206,42 +199,7 @@ func offlineOnlyCmd() *cobra.Command {
 			if vaultPath == "" {
 				return fmt.Errorf("--vault is required")
 			}
-			seedBytes, err := seed.Load(seedFile)
-			if err != nil {
-				return fmt.Errorf("load seed: %w", err)
-			}
-			store := state.NewStore(vaultPath, seedBytes)
-			counters, err := state.NewCounterStore(store)
-			if err != nil {
-				return fmt.Errorf("load vault: %w", err)
-			}
-			fmt.Println("Paste request hex from online-only:")
-			reader := bufio.NewReader(os.Stdin)
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				return err
-			}
-			req, err := airgap.DecodeRequest(line)
-			if err != nil {
-				return fmt.Errorf("decode request: %w", err)
-			}
-			if err := req.Validate(); err != nil {
-				return fmt.Errorf("invalid request: %w", err)
-			}
-			fmt.Printf("RP: %s op=%d allowList=%d\n", req.RPID, req.Op, len(req.AllowList))
-			if !airgap.PromptYesNo("Approve? (Y/n)") {
-				return fmt.Errorf("denied")
-			}
-			approver := promptApprover{}
-			cl := client.New(seedBytes, counters, approver)
-			resp, err := buildResponse(req, cl)
-			if err != nil {
-				return err
-			}
-			hexResp, _ := airgap.EncodeResponse(resp)
-			fmt.Println("Response hex:")
-			fmt.Println(hexResp)
-			return nil
+			return runOfflineVault(seedFile, vaultPath)
 		},
 	}
 	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex seed (if empty, stdin)")
@@ -289,4 +247,105 @@ func buildResponse(req *airgap.Request, cl *client.SeedClient) (*airgap.Response
 	default:
 		return nil, fmt.Errorf("unsupported op %d", req.Op)
 	}
+}
+
+func runOnlineUHID(name string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	go func() {
+		<-sig
+		cancel()
+	}()
+
+	dev, err := uhid.Open(name, uhid.ReportDescriptorFIDO)
+	if err != nil {
+		return err
+	}
+	defer dev.Close()
+	dev.WaitReady()
+
+	fmt.Printf("Online-only UHID relay started as %q. Copy request hex to offline-only and paste responses back.\n", name)
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		report, err := dev.ReadReport(ctx)
+		if err != nil {
+			return err
+		}
+		batch := airgap.PacketBatch{Reports: [][]byte{report}}
+		hexReq, _ := airgap.EncodePackets(batch)
+		fmt.Println("Request hex:")
+		fmt.Println(hexReq)
+		fmt.Println("Paste response hex from offline-only:")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			fmt.Println("empty response, skipping")
+			continue
+		}
+		respBatch, err := airgap.DecodePackets(line)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "decode response: %v\n", err)
+			continue
+		}
+		for _, resp := range respBatch.Reports {
+			if err := dev.WriteReport(ctx, resp); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func runOfflineVault(seedFile, vaultPath string) error {
+	seedBytes, err := seed.Load(seedFile)
+	if err != nil {
+		return fmt.Errorf("load seed: %w", err)
+	}
+	store := state.NewStore(vaultPath, seedBytes)
+	counters, err := state.NewCounterStore(store)
+	if err != nil {
+		return fmt.Errorf("load vault: %w", err)
+	}
+	approver := promptApprover{}
+	cl := client.New(seedBytes, counters, approver)
+
+	ctapServer := ctap.NewCTAPServer(cl)
+	u2fServer := u2f.NewU2FServer(cl)
+	hidServer := ctap_hid.NewCTAPHIDServer(ctapServer, u2fServer)
+
+	var responses [][]byte
+	hidServer.SetResponseHandler(func(resp []byte) {
+		responses = append(responses, resp)
+	})
+
+	fmt.Println("Paste request hex batches from online-only; Ctrl+D to exit.")
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := scanner.Text()
+		batch, err := airgap.DecodePackets(line)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "decode request: %v\n", err)
+			continue
+		}
+		responses = responses[:0]
+		for _, rpt := range batch.Reports {
+			hidServer.HandleMessage(rpt)
+		}
+		outHex, err := airgap.EncodePackets(airgap.PacketBatch{Reports: responses})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "encode response: %v\n", err)
+			continue
+		}
+		fmt.Println(outHex)
+	}
+	return scanner.Err()
 }
