@@ -100,15 +100,35 @@ type promptApprover struct{}
 func (promptApprover) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool {
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
-		return transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", params.RelyingParty))
+		ok := transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", params.RelyingParty))
+		if ok {
+			fmt.Printf("Approved registration for %q\n", params.RelyingParty)
+		}
+		return ok
 	case fido_client.ClientActionFIDOGetAssertion:
-		return transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", params.RelyingParty, params.UserName))
+		ok := transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", params.RelyingParty, params.UserName))
+		if ok {
+			fmt.Printf("Approved login for %q user %q\n", params.RelyingParty, params.UserName)
+		}
+		return ok
 	case fido_client.ClientActionU2FRegister:
-		return transport.Prompt("Approve U2F registration (Y/n)?")
+		ok := transport.Prompt("Approve U2F registration (Y/n)?")
+		if ok {
+			fmt.Println("Approved U2F registration")
+		}
+		return ok
 	case fido_client.ClientActionU2FAuthenticate:
-		return transport.Prompt("Approve U2F authentication (Y/n)?")
+		ok := transport.Prompt("Approve U2F authentication (Y/n)?")
+		if ok {
+			fmt.Println("Approved U2F authentication")
+		}
+		return ok
 	default:
-		return transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
+		ok := transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
+		if ok {
+			fmt.Printf("Approved action %d\n", action)
+		}
+		return ok
 	}
 }
 
