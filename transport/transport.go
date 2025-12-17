@@ -16,8 +16,7 @@ import (
 // Prompt asks the user on stdin with default yes on empty.
 func Prompt(prompt string) bool {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println(prompt)
-	fmt.Print("--> ")
+	fmt.Printf("%s ", prompt)
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		fmt.Printf("Could not read user input: %s - %s\n", response, err)
