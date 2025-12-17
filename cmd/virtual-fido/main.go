@@ -61,6 +61,7 @@ func runCmd() *cobra.Command {
 	var vaultPath string
 	var transportFlag string
 	var deviceName string
+	var alwaysApprove bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run virtual authenticator (seed-based)",
@@ -77,7 +78,7 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load vault: %w", err)
 			}
-			approver := promptApprover{}
+			approver := promptApprover{alwaysApprove: alwaysApprove}
 			cl := client.New(seedBytes, counters, approver)
 			mode := transport.Mode(transportFlag)
 			if mode == "" {
@@ -98,12 +99,15 @@ func runCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&transportFlag, "transport", defaultTransport, "transport: uhid (Linux) or usbip (default usbip on non-Linux, uhid on Linux)")
 	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO", "UHID/USB device name")
+	cmd.Flags().BoolVar(&alwaysApprove, "auto-approve", false, "auto-approve all prompts without asking")
 	return cmd
 }
 
-type promptApprover struct{}
+type promptApprover struct {
+	alwaysApprove bool
+}
 
-func (promptApprover) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool {
+func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool {
 	rp := params.RelyingParty
 	if rp == "" {
 		rp = "<unknown-rp>"
@@ -114,41 +118,61 @@ func (promptApprover) ApproveClientAction(action fido_client.ClientAction, param
 	}
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
-		ok := transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
+		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
 		if ok {
-			fmt.Printf("Approved registration for %q\n", rp)
+			if p.alwaysApprove {
+				fmt.Printf("Auto-approved registration for %q\n", rp)
+			} else {
+				fmt.Printf("Approved registration for %q\n", rp)
+			}
 		} else {
 			fmt.Printf("Denied registration for %q\n", rp)
 		}
 		return ok
 	case fido_client.ClientActionFIDOGetAssertion:
-		ok := transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user))
+		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user))
 		if ok {
-			fmt.Printf("Approved login for %q user %q\n", rp, user)
+			if p.alwaysApprove {
+				fmt.Printf("Auto-approved login for %q user %q\n", rp, user)
+			} else {
+				fmt.Printf("Approved login for %q user %q\n", rp, user)
+			}
 		} else {
 			fmt.Printf("Denied login for %q user %q\n", rp, user)
 		}
 		return ok
 	case fido_client.ClientActionU2FRegister:
-		ok := transport.Prompt("Approve U2F registration (Y/n)?")
+		ok := p.alwaysApprove || transport.Prompt("Approve U2F registration (Y/n)?")
 		if ok {
-			fmt.Println("Approved U2F registration")
+			if p.alwaysApprove {
+				fmt.Println("Auto-approved U2F registration")
+			} else {
+				fmt.Println("Approved U2F registration")
+			}
 		} else {
 			fmt.Println("Denied U2F registration")
 		}
 		return ok
 	case fido_client.ClientActionU2FAuthenticate:
-		ok := transport.Prompt("Approve U2F authentication (Y/n)?")
+		ok := p.alwaysApprove || transport.Prompt("Approve U2F authentication (Y/n)?")
 		if ok {
-			fmt.Println("Approved U2F authentication")
+			if p.alwaysApprove {
+				fmt.Println("Auto-approved U2F authentication")
+			} else {
+				fmt.Println("Approved U2F authentication")
+			}
 		} else {
 			fmt.Println("Denied U2F authentication")
 		}
 		return ok
 	default:
-		ok := transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
+		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
 		if ok {
-			fmt.Printf("Approved action %d\n", action)
+			if p.alwaysApprove {
+				fmt.Printf("Auto-approved action %d\n", action)
+			} else {
+				fmt.Printf("Approved action %d\n", action)
+			}
 		} else {
 			fmt.Printf("Denied action %d\n", action)
 		}
