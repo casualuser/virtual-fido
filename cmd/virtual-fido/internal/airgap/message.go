@@ -60,6 +60,33 @@ type PacketBatch struct {
 	Reports [][]byte `cbor:"1,keyasint"`
 }
 
+// HIDKind identifies CTAP2 (CBOR) vs U2F (MSG).
+type HIDKind uint8
+
+const (
+	HIDKindCTAP HIDKind = 1
+	HIDKindU2F  HIDKind = 2
+)
+
+// HIDRequest represents a full CTAPHID message (already de-fragmented) to send offline.
+type HIDRequest struct {
+	Kind    HIDKind `cbor:"1,keyasint"`
+	Command uint8   `cbor:"2,keyasint"`
+	Payload []byte  `cbor:"3,keyasint"`
+
+	// Optional metadata for prompting.
+	RPID     string `cbor:"4,keyasint,omitempty"`
+	User     string `cbor:"5,keyasint,omitempty"`
+	Op       string `cbor:"6,keyasint,omitempty"`
+	AllowLen int    `cbor:"7,keyasint,omitempty"`
+}
+
+// HIDResponse carries the payload to return to the host for the given command.
+type HIDResponse struct {
+	Payload []byte `cbor:"1,keyasint,omitempty"`
+	Error   string `cbor:"2,keyasint,omitempty"`
+}
+
 // EncodeRequest to hex for copy/paste.
 func EncodeRequest(req *Request) (string, error) {
 	b, err := cbor.Marshal(req)
@@ -124,6 +151,50 @@ func DecodePackets(s string) (PacketBatch, error) {
 		return PacketBatch{}, fmt.Errorf("decode packets: %w", err)
 	}
 	return batch, nil
+}
+
+// EncodeHIDRequest encodes HIDRequest to hex.
+func EncodeHIDRequest(req *HIDRequest) (string, error) {
+	b, err := cbor.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// DecodeHIDRequest decodes hex to HIDRequest.
+func DecodeHIDRequest(s string) (*HIDRequest, error) {
+	b, err := sanitizeHex(s)
+	if err != nil {
+		return nil, err
+	}
+	var req HIDRequest
+	if err := cbor.Unmarshal(b, &req); err != nil {
+		return nil, fmt.Errorf("decode hid request: %w", err)
+	}
+	return &req, nil
+}
+
+// EncodeHIDResponse encodes HIDResponse to hex.
+func EncodeHIDResponse(resp *HIDResponse) (string, error) {
+	b, err := cbor.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// DecodeHIDResponse decodes hex to HIDResponse.
+func DecodeHIDResponse(s string) (*HIDResponse, error) {
+	b, err := sanitizeHex(s)
+	if err != nil {
+		return nil, err
+	}
+	var resp HIDResponse
+	if err := cbor.Unmarshal(b, &resp); err != nil {
+		return nil, fmt.Errorf("decode hid response: %w", err)
+	}
+	return &resp, nil
 }
 
 // PromptYesNo prompts on stdin with default yes.

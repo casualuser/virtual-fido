@@ -275,6 +275,82 @@ func buildResponse(req *airgap.Request, cl *client.SeedClient) (*airgap.Response
 	}
 }
 
+type offlineProxy struct {
+	kind   airgap.HIDKind
+	reader *bufio.Reader
+}
+
+func (p *offlineProxy) HandleMessage(data []byte) []byte {
+	meta := summarizeRequest(p.kind, data)
+	req := &airgap.HIDRequest{
+		Kind:     p.kind,
+		Command:  data[0],
+		Payload:  data,
+		RPID:     meta.rpID,
+		User:     meta.user,
+		Op:       meta.op,
+		AllowLen: meta.allowLen,
+	}
+	hexReq, _ := airgap.EncodeHIDRequest(req)
+	fmt.Println("Request hex (send to offline-only):")
+	fmt.Println(hexReq)
+	fmt.Println("Paste response hex from offline-only (or press Enter to deny/skip):")
+	line, _ := p.reader.ReadString('\n')
+	line = strings.TrimSpace(line)
+	if line == "" {
+		// Deny/skip
+		if p.kind == airgap.HIDKindCTAP {
+			return []byte{0x27} // ctap2ErrOperationDenied
+		}
+		// U2F conditions not satisfied (0x6985)
+		return util.ToBE(uint16(0x6985))
+	}
+	resp, err := airgap.DecodeHIDResponse(line)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "decode response: %v\n", err)
+		if p.kind == airgap.HIDKindCTAP {
+			return []byte{0x27}
+		}
+		return util.ToBE(uint16(0x6985))
+	}
+	if resp.Error != "" {
+		if p.kind == airgap.HIDKindCTAP {
+			return []byte{0x27}
+		}
+		return util.ToBE(uint16(0x6985))
+	}
+	return resp.Payload
+}
+
+type requestMeta struct {
+	rpID     string
+	user     string
+	op       string
+	allowLen int
+}
+
+func summarizeRequest(kind airgap.HIDKind, data []byte) requestMeta {
+	if kind == airgap.HIDKindCTAP && len(data) > 0 {
+		cmd := data[0]
+		switch cmd {
+		case 0x01: // makeCredential
+			args, err := ctap.DecodeMakeCredentialArgs(data[1:])
+			if err == nil && args.RP != nil {
+				userName := ""
+				if args.User != nil {
+					userName = args.User.Name
+				}
+				return requestMeta{rpID: args.RP.ID, user: userName, op: "makeCredential", allowLen: len(args.ExcludeList)}
+			}
+		case 0x02: // getAssertion
+			args, err := ctap.DecodeGetAssertionArgs(data[1:])
+			if err == nil {
+				return requestMeta{rpID: args.RPID, user: "", op: "getAssertion", allowLen: len(args.AllowList)}
+			}
+		}
+	}
+	return requestMeta{}
+}
 func runOnlineUHID(name string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -296,6 +372,16 @@ func runOnlineUHID(name string) error {
 	fmt.Printf("Online-only UHID relay started as %q. Copy request hex to offline-only and paste responses back.\n", name)
 	reader := bufio.NewReader(os.Stdin)
 
+	ctapProxy := &offlineProxy{kind: airgap.HIDKindCTAP, reader: reader}
+	u2fProxy := &offlineProxy{kind: airgap.HIDKindU2F, reader: reader}
+	hidServer := ctap_hid.NewCTAPHIDServer(ctapProxy, u2fProxy)
+	hidServer.SetResponseHandler(func(resp []byte) {
+		if ctx.Err() != nil {
+			return
+		}
+		_ = dev.WriteReport(ctx, resp)
+	})
+
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -304,30 +390,7 @@ func runOnlineUHID(name string) error {
 		if err != nil {
 			return err
 		}
-		batch := airgap.PacketBatch{Reports: [][]byte{report}}
-		hexReq, _ := airgap.EncodePackets(batch)
-		fmt.Println("Request hex:")
-		fmt.Println(hexReq)
-		fmt.Println("Paste response hex from offline-only (or press Enter to deny/skip):")
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		line = strings.TrimSpace(line)
-		if line == "" {
-			fmt.Println("empty response, skipping")
-			continue
-		}
-		respBatch, err := airgap.DecodePackets(line)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "decode response: %v\n", err)
-			continue
-		}
-		for _, resp := range respBatch.Reports {
-			if err := dev.WriteReport(ctx, resp); err != nil {
-				return err
-			}
-		}
+		hidServer.HandleMessage(report)
 	}
 }
 
@@ -348,32 +411,40 @@ func runOfflineVault(seedFile, vaultPath string) error {
 
 	ctapServer := ctap.NewCTAPServer(cl)
 	u2fServer := u2f.NewU2FServer(cl)
-	hidServer := ctap_hid.NewCTAPHIDServer(ctapServer, u2fServer)
 
-	var responses [][]byte
-	hidServer.SetResponseHandler(func(resp []byte) {
-		responses = append(responses, resp)
-	})
-
-	fmt.Println("Paste request hex batches from online-only; Ctrl+D to exit.")
+	fmt.Println("Paste request hex blobs from online-only; Ctrl+D to exit.")
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := scanner.Text()
-		batch, err := airgap.DecodePackets(line)
+		req, err := airgap.DecodeHIDRequest(line)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "decode request: %v\n", err)
 			continue
 		}
-		responses = responses[:0]
-		for _, rpt := range batch.Reports {
-			hidServer.HandleMessage(rpt)
+		if req.Op != "" || req.RPID != "" {
+			fmt.Printf("Request: kind=%d op=%s rp=%s user=%s allow=%d\n", req.Kind, req.Op, req.RPID, req.User, req.AllowLen)
 		}
-		outHex, err := airgap.EncodePackets(airgap.PacketBatch{Reports: responses})
+		if !airgap.PromptYesNo("Approve? (Y/n)") {
+			respHex, _ := airgap.EncodeHIDResponse(&airgap.HIDResponse{Error: "denied"})
+			fmt.Println(respHex)
+			continue
+		}
+		var payload []byte
+		switch req.Kind {
+		case airgap.HIDKindCTAP:
+			payload = ctapServer.HandleMessage(req.Payload)
+		case airgap.HIDKindU2F:
+			payload = u2fServer.HandleMessage(req.Payload)
+		default:
+			fmt.Fprintf(os.Stderr, "unknown request kind %d\n", req.Kind)
+			continue
+		}
+		respHex, err := airgap.EncodeHIDResponse(&airgap.HIDResponse{Payload: payload})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "encode response: %v\n", err)
 			continue
 		}
-		fmt.Println(outHex)
+		fmt.Println(respHex)
 	}
 	return scanner.Err()
 }
