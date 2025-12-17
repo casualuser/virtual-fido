@@ -111,30 +111,40 @@ func (promptApprover) ApproveClientAction(action fido_client.ClientAction, param
 		ok := transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
 		if ok {
 			fmt.Printf("Approved registration for %q\n", rp)
+		} else {
+			fmt.Printf("Denied registration for %q\n", rp)
 		}
 		return ok
 	case fido_client.ClientActionFIDOGetAssertion:
 		ok := transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user))
 		if ok {
 			fmt.Printf("Approved login for %q user %q\n", rp, user)
+		} else {
+			fmt.Printf("Denied login for %q user %q\n", rp, user)
 		}
 		return ok
 	case fido_client.ClientActionU2FRegister:
 		ok := transport.Prompt("Approve U2F registration (Y/n)?")
 		if ok {
 			fmt.Println("Approved U2F registration")
+		} else {
+			fmt.Println("Denied U2F registration")
 		}
 		return ok
 	case fido_client.ClientActionU2FAuthenticate:
 		ok := transport.Prompt("Approve U2F authentication (Y/n)?")
 		if ok {
 			fmt.Println("Approved U2F authentication")
+		} else {
+			fmt.Println("Denied U2F authentication")
 		}
 		return ok
 	default:
 		ok := transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
 		if ok {
 			fmt.Printf("Approved action %d\n", action)
+		} else {
+			fmt.Printf("Denied action %d\n", action)
 		}
 		return ok
 	}
