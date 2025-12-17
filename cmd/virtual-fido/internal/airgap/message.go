@@ -1,9 +1,11 @@
 package airgap
 
 import (
+	"bufio"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"unicode"
 
@@ -26,6 +28,20 @@ type Request struct {
 	ClientDataHash []byte    `cbor:"4,keyasint"`
 	AllowList      [][]byte  `cbor:"5,keyasint,omitempty"`
 	Label          string    `cbor:"6,keyasint,omitempty"`
+}
+
+// Validate ensures required fields are present.
+func (r *Request) Validate() error {
+	if r.Op != OpMakeCredential && r.Op != OpGetAssertion {
+		return errors.New("unsupported op")
+	}
+	if r.RPID == "" {
+		return errors.New("missing rpId")
+	}
+	if len(r.ClientDataHash) == 0 {
+		return errors.New("missing clientDataHash")
+	}
+	return nil
 }
 
 // Response is sent from vault back to watch-only.
@@ -81,6 +97,16 @@ func DecodeResponse(s string) (*Response, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return &resp, nil
+}
+
+// PromptYesNo prompts on stdin with default yes.
+func PromptYesNo(prompt string) bool {
+	fmt.Println(prompt)
+	fmt.Print("--> ")
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	line = strings.ToLower(strings.TrimSpace(line))
+	return line == "" || line == "y" || line == "yes"
 }
 
 // sanitizeHex keeps only printable ASCII, then hex-decodes.
