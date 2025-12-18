@@ -11,7 +11,7 @@ import (
 	"github.com/bulwarkid/virtual-fido/ctap"
 	"github.com/bulwarkid/virtual-fido/ctap_hid"
 	"github.com/bulwarkid/virtual-fido/u2f"
-	"github.com/bulwarkid/virtual-fido/uhid"
+	"github.com/bulwarkid/virtual-fido/transport/uhid"
 )
 
 // StartUHID runs the virtual authenticator over a Linux UHID device using pure Go (no usbip).

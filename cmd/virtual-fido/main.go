@@ -21,7 +21,7 @@ import (
 	"github.com/bulwarkid/virtual-fido/fido_client"
 	"github.com/bulwarkid/virtual-fido/transport"
 	"github.com/bulwarkid/virtual-fido/u2f"
-	"github.com/bulwarkid/virtual-fido/uhid"
+	"github.com/bulwarkid/virtual-fido/transport/uhid"
 	"github.com/bulwarkid/virtual-fido/util"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 	"github.com/spf13/cobra"
