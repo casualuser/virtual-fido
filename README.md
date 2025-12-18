@@ -41,4 +41,4 @@ Note that this tool requires elevated permissions.
 #### UHID (pure Go, self-contained, Linux only)
 1. Ensure `/dev/uhid` is accessible (usually requires root).
 2. Use `virtual_fido.StartUHID(ctx, client, "Virtual FIDO")` in your own program to run without usbip.
-   (The demo CLI still uses usbip by defailt, pass `--transport uhid` to use UHID.)
+   (The demo CLI still uses usbip by default, pass `--transport uhid` to use UHID.)
