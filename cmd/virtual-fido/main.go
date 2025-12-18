@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/airgap"
 	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/client"

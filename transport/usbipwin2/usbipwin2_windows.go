@@ -33,7 +33,7 @@ const (
 )
 
 // IOCTLs (vhci.h).
-const (
+var (
 	ioctlPluginHardware = ctlCode(
 		fileDevUnknown,
 		0x800,
@@ -125,8 +125,12 @@ func (c *Client) Attach() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("usbipwin2: open vhci: %w", err)
 	}
+	pathPtr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return 0, fmt.Errorf("usbipwin2: utf16 path: %w", err)
+	}
 	h, err := windows.CreateFile(
-		path,
+		pathPtr,
 		windows.GENERIC_READ|windows.GENERIC_WRITE,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
 		nil,
@@ -184,8 +188,12 @@ func (c *Client) Detach(port int) error {
 	if err != nil {
 		return fmt.Errorf("usbipwin2: open vhci: %w", err)
 	}
+	pathPtr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return fmt.Errorf("usbipwin2: utf16 path: %w", err)
+	}
 	h, err := windows.CreateFile(
-		path,
+		pathPtr,
 		windows.GENERIC_READ|windows.GENERIC_WRITE,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
 		nil,
@@ -261,7 +269,7 @@ func firstDevicePath(classGUID windows.GUID) (string, error) {
 
 	// Get required size.
 	var required uint32
-	err = setupDiGetDeviceInterfaceDetail(devs, &data, nil, 0, &required, nil)
+	err = setupDiGetDeviceInterfaceDetail(devs, &data, nil, 0, &required, 0)
 	if err != nil && err != windows.ERROR_INSUFFICIENT_BUFFER {
 		return "", err
 	}
@@ -274,7 +282,7 @@ func firstDevicePath(classGUID windows.GUID) (string, error) {
 		detail,
 		required,
 		nil,
-		nil,
+		0,
 	); err != nil {
 		return "", err
 	}
@@ -329,10 +337,10 @@ func setupDiGetClassDevs(
 	)
 	handle := windows.Handle(r0)
 	if handle == windows.InvalidHandle {
-		if e1 != 0 {
-			return handle, error(e1)
+		if e1 != nil {
+			return handle, e1
 		}
-		return handle, windows.EINVAL
+		return handle, windows.ERROR_INVALID_PARAMETER
 	}
 	return handle, nil
 }
@@ -353,10 +361,10 @@ func setupDiEnumDeviceInterfaces(
 		uintptr(unsafe.Pointer(data)),
 	)
 	if r1 == 0 {
-		if e1 != 0 {
-			return error(e1)
+		if e1 != nil {
+			return e1
 		}
-		return windows.EINVAL
+		return windows.ERROR_INVALID_PARAMETER
 	}
 	return nil
 }
@@ -379,10 +387,10 @@ func setupDiGetDeviceInterfaceDetail(
 		devinfoData,
 	)
 	if r1 == 0 {
-		if e1 != 0 {
-			return error(e1)
+		if e1 != nil {
+			return e1
 		}
-		return windows.EINVAL
+		return windows.ERROR_INVALID_PARAMETER
 	}
 	return nil
 }
@@ -391,10 +399,10 @@ func setupDiGetDeviceInterfaceDetail(
 func setupDiDestroyDeviceInfoList(devinfo windows.Handle) error {
 	r1, _, e1 := procSetupDiDestroyDeviceInfoList.Call(uintptr(devinfo))
 	if r1 == 0 {
-		if e1 != 0 {
-			return error(e1)
+		if e1 != nil {
+			return e1
 		}
-		return windows.EINVAL
+		return windows.ERROR_INVALID_PARAMETER
 	}
 	return nil
 }
