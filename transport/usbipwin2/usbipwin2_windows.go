@@ -1,48 +1,82 @@
 //go:build windows
 
+// Package usbipwin2 provides a Windows usbip-win2 client wrapper.
 package usbipwin2
 
 import (
 	"errors"
 	"fmt"
 	"net"
-	"syscall"
 	"unicode/utf8"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-// GUID for the driver device interface (vhci.h GUID_DEVINTERFACE_USB_HOST_CONTROLLER).
-var guidVHCI = windows.GUID{Data1: 0xB4030C06, Data2: 0xDC5F, Data3: 0x4FCC, Data4: [8]byte{0x87, 0xEB, 0xE5, 0x51, 0x5A, 0x09, 0x35, 0xC0}}
+// guidVHCI is the driver device interface GUID (vhci.h GUID_DEVINTERFACE_USB_HOST_CONTROLLER).
+var guidVHCI = windows.GUID{
+	Data1: 0xB4030C06,
+	Data2: 0xDC5F,
+	Data3: 0x4FCC,
+	Data4: [8]byte{0x87, 0xEB, 0xE5, 0x51, 0x5A, 0x09, 0x35, 0xC0},
+}
 
+// Sizes and IOCTL constants from usbip-win2 headers.
 const (
 	busIDSize       = 32
 	serviceSize     = 32
 	hostSize        = 1025
-	fileDevUnk      = 0x22
+	fileDevUnknown  = 0x22
 	methodBuffered  = 0
 	fileReadAccess  = 0x1
 	fileWriteAccess = 0x2
 )
 
-// IOCTL codes (see vhci.h).
+// IOCTLs (vhci.h).
 const (
-	ioctlPluginHardware  = ctlCode(fileDevUnk, 0x800, methodBuffered, fileReadAccess|fileWriteAccess)
-	ioctlPlugoutHardware = ctlCode(fileDevUnk, 0x801, methodBuffered, fileReadAccess|fileWriteAccess)
-	ioctlGetImportedDevs = ctlCode(fileDevUnk, 0x802, methodBuffered, fileReadAccess|fileWriteAccess)
-	ioctlSetPersistent   = ctlCode(fileDevUnk, 0x803, methodBuffered, fileReadAccess|fileWriteAccess)
-	ioctlGetPersistent   = ctlCode(fileDevUnk, 0x804, methodBuffered, fileReadAccess|fileWriteAccess)
+	ioctlPluginHardware = ctlCode(
+		fileDevUnknown,
+		0x800,
+		methodBuffered,
+		fileReadAccess|fileWriteAccess,
+	)
+	ioctlPlugoutHardware = ctlCode(
+		fileDevUnknown,
+		0x801,
+		methodBuffered,
+		fileReadAccess|fileWriteAccess,
+	)
+	ioctlGetImportedDevs = ctlCode(
+		fileDevUnknown,
+		0x802,
+		methodBuffered,
+		fileReadAccess|fileWriteAccess,
+	)
+	ioctlSetPersistent = ctlCode(
+		fileDevUnknown,
+		0x803,
+		methodBuffered,
+		fileReadAccess|fileWriteAccess,
+	)
+	ioctlGetPersistent = ctlCode(
+		fileDevUnknown,
+		0x804,
+		methodBuffered,
+		fileReadAccess|fileWriteAccess,
+	)
 )
 
+// ctlCode builds a Windows CTL_CODE.
 func ctlCode(devType, function, method, access uint32) uint32 {
 	return (devType << 16) | (access << 14) | (function << 2) | method
 }
 
+// base mirrors usbip::vhci::base.
 type base struct {
 	Size uint32
 }
 
+// importedDeviceLocation mirrors usbip::vhci::imported_device_location.
 type importedDeviceLocation struct {
 	Port    int32
 	BusID   [busIDSize]byte
@@ -50,20 +84,22 @@ type importedDeviceLocation struct {
 	Host    [hostSize]byte
 }
 
+// pluginHardware mirrors usbip::vhci::ioctl::plugin_hardware.
 type pluginHardware struct {
 	base
 	importedDeviceLocation
 }
 
+// plugoutHardware mirrors usbip::vhci::ioctl::plugout_hardware.
 type plugoutHardware struct {
 	base
 	Port int32
 }
 
-// Client is a Windows usbip-win2 client wrapper. Requires the usbip-win2 driver to be installed.
+// Client is a Windows usbip-win2 client wrapper. Requires the usbip-win2 driver.
 type Client struct {
 	Address string // host:port of usbip server
-	busid   string // busid exported by server (optional if only one device?)
+	busid   string // busid exported by server (optional if only one device)
 }
 
 // New constructs a client for the given address.
@@ -71,10 +107,12 @@ func New(address string) *Client {
 	return &Client{Address: address}
 }
 
-// SetBusID optionally sets the remote busid to import (when multiple exports exist).
-func (c *Client) SetBusID(busid string) { c.busid = busid }
+// SetBusID sets the remote busid to import (when multiple exports exist).
+func (c *Client) SetBusID(busid string) {
+	c.busid = busid
+}
 
-// Attach connects to the driver and issues PLUGIN_HARDWARE to import the remote device.
+// Attach connects to the driver and issues PLUGIN_HARDWARE to import the device.
 func (c *Client) Attach() (int, error) {
 	if c.Address == "" {
 		return 0, errors.New("usbipwin2: address required")
@@ -87,7 +125,15 @@ func (c *Client) Attach() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("usbipwin2: open vhci: %w", err)
 	}
-	h, err := windows.CreateFile(path, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	h, err := windows.CreateFile(
+		path,
+		windows.GENERIC_READ|windows.GENERIC_WRITE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
+		nil,
+		windows.OPEN_EXISTING,
+		windows.FILE_ATTRIBUTE_NORMAL,
+		0,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("usbipwin2: createfile: %w", err)
 	}
@@ -108,13 +154,26 @@ func (c *Client) Attach() (int, error) {
 
 	out := req
 	var bytesRet uint32
-	err = windows.DeviceIoControl(h, ioctlPluginHardware, (*byte)(unsafe.Pointer(&req)), uint32(unsafe.Sizeof(req)), (*byte)(unsafe.Pointer(&out)), uint32(unsafe.Sizeof(out)), &bytesRet, nil)
+	err = windows.DeviceIoControl(
+		h,
+		ioctlPluginHardware,
+		(*byte)(unsafe.Pointer(&req)),
+		uint32(unsafe.Sizeof(req)),
+		(*byte)(unsafe.Pointer(&out)),
+		uint32(unsafe.Sizeof(out)),
+		&bytesRet,
+		nil,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("usbipwin2: ioctl plugin: %w", err)
 	}
 	expected := uint32(unsafe.Offsetof(out.Port)) + 4
 	if bytesRet < expected || out.Port <= 0 {
-		return 0, fmt.Errorf("usbipwin2: plugin returned invalid port (%d, %d bytes)", out.Port, bytesRet)
+		return 0, fmt.Errorf(
+			"usbipwin2: plugin returned invalid port (%d, %d bytes)",
+			out.Port,
+			bytesRet,
+		)
 	}
 	return int(out.Port), nil
 }
@@ -125,21 +184,42 @@ func (c *Client) Detach(port int) error {
 	if err != nil {
 		return fmt.Errorf("usbipwin2: open vhci: %w", err)
 	}
-	h, err := windows.CreateFile(path, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	h, err := windows.CreateFile(
+		path,
+		windows.GENERIC_READ|windows.GENERIC_WRITE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
+		nil,
+		windows.OPEN_EXISTING,
+		windows.FILE_ATTRIBUTE_NORMAL,
+		0,
+	)
 	if err != nil {
 		return fmt.Errorf("usbipwin2: createfile: %w", err)
 	}
 	defer windows.CloseHandle(h)
 
-	req := plugoutHardware{base: base{Size: uint32(unsafe.Sizeof(plugoutHardware{}))}, Port: int32(port)}
+	req := plugoutHardware{
+		base: base{Size: uint32(unsafe.Sizeof(plugoutHardware{}))},
+		Port: int32(port),
+	}
 	var bytesRet uint32
-	err = windows.DeviceIoControl(h, ioctlPlugoutHardware, (*byte)(unsafe.Pointer(&req)), uint32(unsafe.Sizeof(req)), nil, 0, &bytesRet, nil)
+	err = windows.DeviceIoControl(
+		h,
+		ioctlPlugoutHardware,
+		(*byte)(unsafe.Pointer(&req)),
+		uint32(unsafe.Sizeof(req)),
+		nil,
+		0,
+		&bytesRet,
+		nil,
+	)
 	if err != nil {
 		return fmt.Errorf("usbipwin2: ioctl plugout: %w", err)
 	}
 	return nil
 }
 
+// fillString copies a UTF-8 string into a fixed-size C buffer.
 func fillString(dst []byte, s string) error {
 	if s == "" {
 		return nil
@@ -155,13 +235,19 @@ func fillString(dst []byte, s string) error {
 	return nil
 }
 
+// splitHostPort splits a host:port address.
 func splitHostPort(addr string) (host, port string, err error) {
 	return net.SplitHostPort(addr)
 }
 
-// firstDevicePath returns the first present device interface path for the given GUID.
+// firstDevicePath returns the first present device interface path for the GUID.
 func firstDevicePath(classGUID windows.GUID) (string, error) {
-	devs, err := setupDiGetClassDevs(&classGUID, 0, 0, digcfPresent|digcfDeviceInterface)
+	devs, err := setupDiGetClassDevs(
+		&classGUID,
+		0,
+		0,
+		digcfPresent|digcfDeviceInterface,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -182,10 +268,16 @@ func firstDevicePath(classGUID windows.GUID) (string, error) {
 	buf := make([]byte, required)
 	detail := (*spDeviceInterfaceDetailData)(unsafe.Pointer(&buf[0]))
 	detail.cbSize = uint32(unsafe.Sizeof(spDeviceInterfaceDetailData{}))
-	if err = setupDiGetDeviceInterfaceDetail(devs, &data, detail, required, nil, nil); err != nil {
+	if err = setupDiGetDeviceInterfaceDetail(
+		devs,
+		&data,
+		detail,
+		required,
+		nil,
+		nil,
+	); err != nil {
 		return "", err
 	}
-	// detail.DevicePath is null-terminated UTF-16.
 	path := windows.UTF16PtrToString(&detail.devicePath[0])
 	if path == "" {
 		return "", errors.New("usbipwin2: empty device path")
@@ -193,8 +285,7 @@ func firstDevicePath(classGUID windows.GUID) (string, error) {
 	return path, nil
 }
 
-// --- SetupAPI helpers ---
-
+// SetupAPI bindings.
 var (
 	modsetupapi                          = windows.NewLazySystemDLL("setupapi.dll")
 	procSetupDiGetClassDevsW             = modsetupapi.NewProc("SetupDiGetClassDevsW")
@@ -203,11 +294,13 @@ var (
 	procSetupDiDestroyDeviceInfoList     = modsetupapi.NewProc("SetupDiDestroyDeviceInfoList")
 )
 
+// SetupAPI flags for SetupDiGetClassDevs.
 const (
 	digcfPresent         = 0x00000002
 	digcfDeviceInterface = 0x00000010
 )
 
+// spDeviceInterfaceData mirrors SP_DEVICE_INTERFACE_DATA.
 type spDeviceInterfaceData struct {
 	cbSize    uint32
 	ClassGuid windows.GUID
@@ -215,12 +308,19 @@ type spDeviceInterfaceData struct {
 	reserved  uintptr
 }
 
+// spDeviceInterfaceDetailData mirrors SP_DEVICE_INTERFACE_DETAIL_DATA_W.
 type spDeviceInterfaceDetailData struct {
 	cbSize     uint32
 	devicePath [1]uint16
 }
 
-func setupDiGetClassDevs(classGUID *windows.GUID, enumerator uintptr, hwndParent uintptr, flags uint32) (windows.Handle, error) {
+// setupDiGetClassDevs wraps SetupDiGetClassDevsW.
+func setupDiGetClassDevs(
+	classGUID *windows.GUID,
+	enumerator uintptr,
+	hwndParent uintptr,
+	flags uint32,
+) (windows.Handle, error) {
 	r0, _, e1 := procSetupDiGetClassDevsW.Call(
 		uintptr(unsafe.Pointer(classGUID)),
 		enumerator,
@@ -237,7 +337,14 @@ func setupDiGetClassDevs(classGUID *windows.GUID, enumerator uintptr, hwndParent
 	return handle, nil
 }
 
-func setupDiEnumDeviceInterfaces(devinfo windows.Handle, devinfoData uintptr, classGUID *windows.GUID, index uint32, data *spDeviceInterfaceData) error {
+// setupDiEnumDeviceInterfaces wraps SetupDiEnumDeviceInterfaces.
+func setupDiEnumDeviceInterfaces(
+	devinfo windows.Handle,
+	devinfoData uintptr,
+	classGUID *windows.GUID,
+	index uint32,
+	data *spDeviceInterfaceData,
+) error {
 	r1, _, e1 := procSetupDiEnumDeviceInterfaces.Call(
 		uintptr(devinfo),
 		devinfoData,
@@ -254,7 +361,15 @@ func setupDiEnumDeviceInterfaces(devinfo windows.Handle, devinfoData uintptr, cl
 	return nil
 }
 
-func setupDiGetDeviceInterfaceDetail(devinfo windows.Handle, data *spDeviceInterfaceData, detail *spDeviceInterfaceDetailData, detailSize uint32, requiredSize *uint32, devinfoData uintptr) error {
+// setupDiGetDeviceInterfaceDetail wraps SetupDiGetDeviceInterfaceDetailW.
+func setupDiGetDeviceInterfaceDetail(
+	devinfo windows.Handle,
+	data *spDeviceInterfaceData,
+	detail *spDeviceInterfaceDetailData,
+	detailSize uint32,
+	requiredSize *uint32,
+	devinfoData uintptr,
+) error {
 	r1, _, e1 := procSetupDiGetDeviceInterfaceDetailW.Call(
 		uintptr(devinfo),
 		uintptr(unsafe.Pointer(data)),
@@ -272,6 +387,7 @@ func setupDiGetDeviceInterfaceDetail(devinfo windows.Handle, data *spDeviceInter
 	return nil
 }
 
+// setupDiDestroyDeviceInfoList wraps SetupDiDestroyDeviceInfoList.
 func setupDiDestroyDeviceInfoList(devinfo windows.Handle) error {
 	r1, _, e1 := procSetupDiDestroyDeviceInfoList.Call(uintptr(devinfo))
 	if r1 == 0 {
