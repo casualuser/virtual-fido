@@ -61,8 +61,10 @@ func runServer(client virtual_fido.FIDOClient) {
 		transport.Start(transport.ModeUSBIP, client, "Virtual FIDO")
 	case "uhid":
 		transport.Start(transport.ModeUHID, client, "Virtual FIDO")
+	case "usbip-win2":
+		transport.Start(transport.ModeUSBIPWin2, client, "Virtual FIDO")
 	default:
-		fmt.Printf("Unknown transport %q; expected usbip or uhid\n",
-			transportMode)
+		_, options := transport.TransportOptions()
+		fmt.Printf("Unknown transport %q; expected %s\n", transportMode, options)
 	}
 }

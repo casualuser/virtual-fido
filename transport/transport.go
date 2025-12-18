@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +49,18 @@ func Start(mode Mode, client virtual_fido.FIDOClient, deviceName string) {
 	default:
 		fmt.Printf("unknown transport %q, falling back to usbip\n", mode)
 		runUsbipServer(client)
+	}
+}
+
+// TransportOptions returns the default transport and the help string of valid options.
+func TransportOptions() (Mode, string) {
+	switch runtime.GOOS {
+	case "linux":
+		return ModeUHID, "uhid or usbip"
+	case "windows":
+		return ModeUSBIPWin2, "usbip-win2 or usbip"
+	default:
+		return ModeUSBIP, "usbip"
 	}
 }
 

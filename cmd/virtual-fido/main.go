@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"strings"
 
 	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/airgap"
@@ -20,8 +19,8 @@ import (
 	"github.com/bulwarkid/virtual-fido/ctap_hid"
 	"github.com/bulwarkid/virtual-fido/fido_client"
 	"github.com/bulwarkid/virtual-fido/transport"
-	"github.com/bulwarkid/virtual-fido/u2f"
 	"github.com/bulwarkid/virtual-fido/transport/uhid"
+	"github.com/bulwarkid/virtual-fido/u2f"
 	"github.com/bulwarkid/virtual-fido/util"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 	"github.com/spf13/cobra"
@@ -88,7 +87,8 @@ func runCmd() *cobra.Command {
 			cl := client.New(seedBytes, counters, approver)
 			mode := transport.Mode(transportFlag)
 			if mode == "" {
-				mode = defaultTransport()
+				defaultMode, _ := transport.TransportOptions()
+				mode = defaultMode
 			}
 			if deviceName == "" {
 				deviceName = "Virtual FIDO"
@@ -99,11 +99,8 @@ func runCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex-encoded seed (if empty, read from stdin)")
 	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
-	defaultTransport := "usbip"
-	if runtime.GOOS == "linux" {
-		defaultTransport = "uhid"
-	}
-	cmd.Flags().StringVar(&transportFlag, "transport", defaultTransport, "transport: uhid (Linux) or usbip (default usbip on non-Linux, uhid on Linux)")
+	defaultTransport, transportOptions := transport.TransportOptions()
+	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
 	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO", "UHID/USB device name")
 	cmd.Flags().BoolVar(&alwaysApprove, "auto-approve", false, "auto-approve all prompts without asking")
 	return cmd
@@ -186,13 +183,6 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 	}
 }
 
-func defaultTransport() transport.Mode {
-	if runtime.GOOS == "linux" {
-		return transport.ModeUHID
-	}
-	return transport.ModeUSBIP
-}
-
 func onlineOnlyCmd() *cobra.Command {
 	var transportFlag string
 	var deviceName string
@@ -201,9 +191,6 @@ func onlineOnlyCmd() *cobra.Command {
 		Short: "Run online relay mode (air-gapped flow)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := transport.Mode(transportFlag)
-			if mode == "" {
-				mode = defaultTransport()
-			}
 			if mode != transport.ModeUHID {
 				return fmt.Errorf("online-only currently supports --transport uhid")
 			}
