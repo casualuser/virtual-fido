@@ -21,6 +21,8 @@ import (
 	"github.com/bulwarkid/virtual-fido/transport"
 	"github.com/bulwarkid/virtual-fido/transport/uhid"
 	"github.com/bulwarkid/virtual-fido/u2f"
+	"github.com/bulwarkid/virtual-fido/usb"
+	"github.com/bulwarkid/virtual-fido/usbip"
 	"github.com/bulwarkid/virtual-fido/util"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 	"github.com/spf13/cobra"
@@ -191,17 +193,22 @@ func onlineOnlyCmd() *cobra.Command {
 		Short: "Run online relay mode (air-gapped flow)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := transport.Mode(transportFlag)
-			if mode != transport.ModeUHID {
-				return fmt.Errorf("online-only currently supports --transport uhid")
+			switch mode {
+			case transport.ModeUHID:
+				if deviceName == "" {
+					deviceName = "Virtual FIDO (relay)"
+				}
+				return runOnlineUHID(deviceName)
+			case transport.ModeUSBIP, transport.ModeUSBIPWin2:
+				return runOnlineUSBIP(mode)
+			default:
+				_, options := transport.TransportOptions()
+				return fmt.Errorf("unknown transport %q; expected %s", transportFlag, options)
 			}
-			if deviceName == "" {
-				deviceName = "Virtual FIDO (relay)"
-			}
-			return runOnlineUHID(deviceName)
 		},
 	}
-	defaultTransport := "uhid"
-	cmd.Flags().StringVar(&transportFlag, "transport", defaultTransport, "transport (only uhid is supported for online-only)")
+	defaultTransport, transportOptions := transport.TransportOptions()
+	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
 	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO (relay)", "UHID device name")
 	return cmd
 }
@@ -422,6 +429,31 @@ func runOnlineUHID(name string) error {
 		}
 		hidServer.HandleMessage(report)
 	}
+}
+
+func runOnlineUSBIP(mode transport.Mode) error {
+	ctapProxy := &offlineProxy{kind: airgap.HIDKindCTAP, reader: bufio.NewReader(os.Stdin)}
+	u2fProxy := &offlineProxy{kind: airgap.HIDKindU2F, reader: bufio.NewReader(os.Stdin)}
+	hidServer := ctap_hid.NewCTAPHIDServer(ctapProxy, u2fProxy)
+	usbDevice := usb.NewUSBDevice(hidServer)
+	server := usbip.NewUSBIPServer([]usbip.USBIPDevice{usbDevice})
+
+	go server.Start()
+	time.Sleep(500 * time.Millisecond)
+
+	var err error
+	switch mode {
+	case transport.ModeUSBIP:
+		err = transport.AttachUSBIP()
+	case transport.ModeUSBIPWin2:
+		err = transport.AttachUSBIPWin2()
+	default:
+		err = fmt.Errorf("unsupported usbip transport %q", mode)
+	}
+	if err != nil {
+		return err
+	}
+	select {}
 }
 
 func runOfflineVault(seedFile, vaultPath string) error {
