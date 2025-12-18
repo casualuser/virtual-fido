@@ -30,8 +30,9 @@ func Prompt(prompt string) bool {
 type Mode string
 
 const (
-	ModeUSBIP Mode = "usbip"
-	ModeUHID  Mode = "uhid"
+	ModeUSBIP     Mode = "usbip"
+	ModeUHID      Mode = "uhid"
+	ModeUSBIPWin2 Mode = "usbip-win2"
 )
 
 // Start runs the virtual-fido server over the selected transport.
@@ -42,6 +43,8 @@ func Start(mode Mode, client virtual_fido.FIDOClient, deviceName string) {
 		runUsbipServer(client)
 	case ModeUHID:
 		runUhidServer(client, deviceName)
+	case ModeUSBIPWin2:
+		runUsbipWin2(client)
 	default:
 		fmt.Printf("unknown transport %q, falling back to usbip\n", mode)
 		runUsbipServer(client)
