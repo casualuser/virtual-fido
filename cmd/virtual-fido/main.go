@@ -93,19 +93,39 @@ func runCmd() *cobra.Command {
 				defaultMode, _ := transport.TransportOptions()
 				mode = defaultMode
 			}
+
 			if deviceName == "" {
 				deviceName = "Virtual FIDO"
 			}
+
 			transport.Start(mode, cl, deviceName)
+
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex-encoded seed (if empty, read from stdin)")
-	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
+
+	cmd.Flags().StringVar(
+		&seedFile, "seed-file", "",
+		"path to hex-encoded seed (if empty, read from stdin)",
+	)
+	cmd.Flags().StringVar(
+		&countersPath, "counters", "",
+		"path to encrypted counter store (optional; defaults to time-based)",
+	)
 	defaultTransport, transportOptions := transport.TransportOptions()
-	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
-	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO", "UHID/USB device name")
-	cmd.Flags().BoolVar(&alwaysApprove, "auto-approve", false, "auto-approve all prompts without asking")
+	cmd.Flags().StringVar(
+		&transportFlag, "transport", string(defaultTransport),
+		"transport: "+transportOptions,
+	)
+	cmd.Flags().StringVar(
+		&deviceName, "device-name", "Virtual FIDO",
+		"UHID/USB device name",
+	)
+	cmd.Flags().BoolVar(
+		&alwaysApprove, "auto-approve", false,
+		"auto-approve all prompts without asking",
+	)
+
 	return cmd
 }
 
@@ -118,10 +138,12 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 	if rp == "" {
 		rp = "<unknown-rp>"
 	}
+
 	user := params.UserName
 	if user == "" {
 		user = "<unknown-user>"
 	}
+
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
 		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
@@ -135,6 +157,7 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 			fmt.Printf("Denied registration for %q\n", rp)
 		}
 		return ok
+
 	case fido_client.ClientActionFIDOGetAssertion:
 		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user))
 		if ok {
@@ -147,6 +170,7 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 			fmt.Printf("Denied login for %q user %q\n", rp, user)
 		}
 		return ok
+
 	case fido_client.ClientActionU2FRegister:
 		ok := p.alwaysApprove || transport.Prompt("Approve U2F registration (Y/n)?")
 		if ok {
@@ -159,6 +183,7 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 			fmt.Println("Denied U2F registration")
 		}
 		return ok
+
 	case fido_client.ClientActionU2FAuthenticate:
 		ok := p.alwaysApprove || transport.Prompt("Approve U2F authentication (Y/n)?")
 		if ok {
@@ -171,8 +196,12 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 			fmt.Println("Denied U2F authentication")
 		}
 		return ok
+
 	default:
-		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
+		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf(
+			"Approve action %d (Y/n)?", action,
+		))
+
 		if ok {
 			if p.alwaysApprove {
 				fmt.Printf("Auto-approved action %d\n", action)
@@ -182,6 +211,7 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 		} else {
 			fmt.Printf("Denied action %d\n", action)
 		}
+
 		return ok
 	}
 }
@@ -200,6 +230,8 @@ func onlineOnlyCmd() *cobra.Command {
 					deviceName = "Virtual FIDO (relay)"
 				}
 				return runOnlineUHID(deviceName)
+			case transport.ModeDarwin:
+				return runOnlineDarwin()
 			case transport.ModeUSBIP, transport.ModeUSBIPWin2:
 				return runOnlineUSBIP(mode)
 			default:
@@ -209,14 +241,22 @@ func onlineOnlyCmd() *cobra.Command {
 		},
 	}
 	defaultTransport, transportOptions := transport.TransportOptions()
-	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
-	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO (relay)", "UHID device name")
+	cmd.Flags().StringVar(
+		&transportFlag, "transport", string(defaultTransport),
+		"transport: "+transportOptions,
+	)
+	cmd.Flags().StringVar(
+		&deviceName, "device-name", "Virtual FIDO (relay)",
+		"UHID device name",
+	)
+
 	return cmd
 }
 
 func offlineOnlyCmd() *cobra.Command {
 	var seedFile string
 	var countersPath string
+
 	cmd := &cobra.Command{
 		Use:   "offline-only",
 		Short: "Process online-only requests using seed and vault",
@@ -224,8 +264,20 @@ func offlineOnlyCmd() *cobra.Command {
 			return runOfflineVault(seedFile, countersPath)
 		},
 	}
-	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex seed (if empty, stdin)")
-	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
+
+	cmd.Flags().StringVar(
+		&seedFile, "seed-file", "",
+		"path to hex seed (if empty, stdin)",
+	)
+	cmd.Flags().StringVar(
+		&countersPath, "counters", "",
+		"path to encrypted counter store (optional; defaults to time-based)",
+	)
+	cmd.Flags().BoolVar(
+		&autoApprove, "auto-approve", false,
+		"Auto-approve all requests",
+	)
+
 	return cmd
 }
 
@@ -247,6 +299,7 @@ func buildResponse(req *airgap.Request, cl *client.SeedClient) (*airgap.Response
 			AuthenticatorData: resp.AuthData,
 			AttestationObject: util.MarshalCBOR(resp),
 		}, nil
+
 	case airgap.OpGetAssertion:
 		if len(req.AllowList) == 0 {
 			return nil, fmt.Errorf("allowList required")
@@ -266,6 +319,7 @@ func buildResponse(req *airgap.Request, cl *client.SeedClient) (*airgap.Response
 			UserHandle:        req.UserHandle,
 			SignCount:         uint32(cs.SignatureCounter),
 		}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported op %d", req.Op)
 	}
@@ -294,8 +348,10 @@ func (p *offlineProxy) HandleMessage(data []byte) []byte {
 	fmt.Println("Request hex (send to offline-only):")
 	fmt.Println(hexReq)
 	fmt.Println("Paste response hex from offline-only (or press Enter to deny/skip):")
+
 	line, _ := p.reader.ReadString('\n')
 	line = strings.TrimSpace(line)
+
 	if line == "" {
 		// Deny/skip
 		if p.kind == airgap.HIDKindCTAP {
@@ -304,6 +360,7 @@ func (p *offlineProxy) HandleMessage(data []byte) []byte {
 		// U2F conditions not satisfied (0x6985)
 		return util.ToBE(uint16(0x6985))
 	}
+
 	resp, err := airgap.DecodeHIDResponse(line)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "decode response: %v\n", err)
@@ -312,12 +369,14 @@ func (p *offlineProxy) HandleMessage(data []byte) []byte {
 		}
 		return util.ToBE(uint16(0x6985))
 	}
+
 	if resp.Error != "" {
 		if p.kind == airgap.HIDKindCTAP {
 			return []byte{0x27}
 		}
 		return util.ToBE(uint16(0x6985))
 	}
+
 	return resp.Payload
 }
 
@@ -402,6 +461,7 @@ func runOnlineUHID(name string) error {
 	}()
 
 	fmt.Printf("Online-only UHID relay started as %q. Copy request hex to offline-only and paste responses back.\n", name)
+
 	reader := bufio.NewReader(os.Stdin)
 
 	ctapProxy := &offlineProxy{kind: airgap.HIDKindCTAP, reader: reader}
@@ -411,6 +471,7 @@ func runOnlineUHID(name string) error {
 		if ctx.Err() != nil {
 			return
 		}
+		fmt.Printf("Writing %d bytes to UHID\n", len(resp))
 		_ = dev.WriteReport(ctx, resp)
 	})
 
@@ -418,16 +479,19 @@ func runOnlineUHID(name string) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+
 		report, err := dev.ReadReport(ctx)
 		if err != nil {
 			return err
 		}
+
 		if handled, resp := handleLocal(report); handled {
 			if resp != nil {
 				_ = dev.WriteReport(ctx, resp)
 			}
 			continue
 		}
+
 		hidServer.HandleMessage(report)
 	}
 }
@@ -457,6 +521,8 @@ func runOnlineUSBIP(mode transport.Mode) error {
 	select {}
 }
 
+var autoApprove bool
+
 func runOfflineVault(seedFile, vaultPath string) error {
 	seedBytes, err := seed.Load(seedFile)
 	if err != nil {
@@ -476,7 +542,7 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		fmt.Print(cs.String())
 		counters = cs
 	}
-	approver := promptApprover{}
+	approver := promptApprover{alwaysApprove: autoApprove}
 	cl := client.New(seedBytes, counters, approver)
 
 	ctapServer := ctap.NewCTAPServer(cl)
@@ -494,7 +560,8 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		if req.Op != "" || req.RPID != "" {
 			fmt.Printf("Request: kind=%d op=%s rp=%s user=%s allow=%d\n", req.Kind, req.Op, req.RPID, req.User, req.AllowLen)
 		}
-		if !airgap.PromptYesNo("Approve? (Y/n)") {
+
+		if !autoApprove && !airgap.PromptYesNo("Approve? (Y/n)") {
 			respHex, _ := airgap.EncodeHIDResponse(&airgap.HIDResponse{Error: "denied"})
 			fmt.Println(respHex)
 			continue

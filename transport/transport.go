@@ -34,6 +34,7 @@ const (
 	ModeUSBIP     Mode = "usbip"
 	ModeUHID      Mode = "uhid"
 	ModeUSBIPWin2 Mode = "usbip-win2"
+	ModeDarwin    Mode = "darwin"
 )
 
 // Start runs the virtual-fido server over the selected transport.
@@ -46,6 +47,8 @@ func Start(mode Mode, client virtual_fido.FIDOClient, deviceName string) {
 		runUhidServer(client, deviceName)
 	case ModeUSBIPWin2:
 		runUsbipWin2(client)
+	case ModeDarwin:
+		runDarwinServer(client, deviceName)
 	default:
 		fmt.Printf("unknown transport %q, falling back to usbip\n", mode)
 		runUsbipServer(client)
@@ -59,6 +62,8 @@ func TransportOptions() (Mode, string) {
 		return ModeUHID, "uhid or usbip"
 	case "windows":
 		return ModeUSBIPWin2, "usbip-win2 or usbip"
+	case "darwin":
+		return ModeDarwin, "darwin"
 	default:
 		return ModeUSBIP, "usbip"
 	}

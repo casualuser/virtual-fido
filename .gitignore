@@ -1,5 +1,30 @@
+# Binaries
 /target
-vault.data
-.DS_store
 /demo
+/demo-linux
+/virtual-fido
+/virtual-fido-linux
+/virtual-fido-macos
+
+# Build Artifacts
+/mac/output/
+/mac/USBDriver/build/
+*.a
+*.o
+*.app
+
+# Data & Config
+vault.data
 vault.json
+*.seed
+*.seedHeader
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+.DS_store
+
