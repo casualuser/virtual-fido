@@ -200,6 +200,8 @@ func onlineOnlyCmd() *cobra.Command {
 					deviceName = "Virtual FIDO (relay)"
 				}
 				return runOnlineUHID(deviceName)
+			case transport.ModeDarwin:
+				return runOnlineDarwin()
 			case transport.ModeUSBIP, transport.ModeUSBIPWin2:
 				return runOnlineUSBIP(mode)
 			default:
@@ -226,6 +228,7 @@ func offlineOnlyCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex seed (if empty, stdin)")
 	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
+	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "Auto-approve all requests")
 	return cmd
 }
 
@@ -457,6 +460,8 @@ func runOnlineUSBIP(mode transport.Mode) error {
 	select {}
 }
 
+var autoApprove bool
+
 func runOfflineVault(seedFile, vaultPath string) error {
 	seedBytes, err := seed.Load(seedFile)
 	if err != nil {
@@ -476,7 +481,7 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		fmt.Print(cs.String())
 		counters = cs
 	}
-	approver := promptApprover{}
+	approver := promptApprover{alwaysApprove: autoApprove}
 	cl := client.New(seedBytes, counters, approver)
 
 	ctapServer := ctap.NewCTAPServer(cl)
@@ -494,7 +499,7 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		if req.Op != "" || req.RPID != "" {
 			fmt.Printf("Request: kind=%d op=%s rp=%s user=%s allow=%d\n", req.Kind, req.Op, req.RPID, req.User, req.AllowLen)
 		}
-		if !airgap.PromptYesNo("Approve? (Y/n)") {
+		if !autoApprove && !airgap.PromptYesNo("Approve? (Y/n)") {
 			respHex, _ := airgap.EncodeHIDResponse(&airgap.HIDResponse{Error: "denied"})
 			fmt.Println(respHex)
 			continue

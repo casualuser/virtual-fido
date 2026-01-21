@@ -89,12 +89,15 @@ static io_connect_t open_connection(void) {
     kern_return_t ret;
     io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceNameMatching(DEXT_IDENTIFIER));
     if (!service) {
+        printf("USBDriverLib: Service matching '%s' not found, trying full identifier\n", DEXT_IDENTIFIER);
         service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(FULL_DEXT_IDENTIFIER));
         if (!service) {
             debugf("Could not find matching service\n");
+            printf("USBDriverLib: Could not find matching service '%s'\n", FULL_DEXT_IDENTIFIER);
             return IO_OBJECT_NULL;
         }
     }
+    printf("USBDriverLib: Found matching service\n");
     
     io_connect_t connection;
     ret = IOServiceOpen(service, mach_task_self_, kIOHIDServerConnectType, &connection);
@@ -107,6 +110,7 @@ static io_connect_t open_connection(void) {
 }
 
 usb_driver_device_t *usb_driver_init_device(usb_driver_receive_data_callback receiveData) {
+    printf("USBDriverLib: usb_driver_init_device called\n");
     usb_driver_device_t *device = malloc(sizeof(usb_driver_device_t));
     device->receiveData = receiveData;
     return device;
