@@ -40,6 +40,21 @@ USBDevice* USBDevice::newDevice(IOService *provider) {
         return nullptr;
     }
 
+    ret = device->Start(provider);
+    if (ret != kIOReturnSuccess) {
+        Log("Failed to start device: 0x%08x", ret);
+        device->release();
+        return nullptr;
+    }
+
+    ret = device->RegisterService();
+    if (ret != kIOReturnSuccess) {
+        Log("Failed to register device: 0x%08x", ret);
+        device->Terminate(0);
+        device->release();
+        return nullptr;
+    }
+
     return device;
 }
 
