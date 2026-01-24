@@ -5,19 +5,46 @@
 /virtual-fido
 /virtual-fido-linux
 /virtual-fido-macos
+/virtual-fido-macos.debug
+/virtual-fido.log
 
 # Build Artifacts
 /mac/output/
 /mac/USBDriver/build/
+/mac/USBDriver/mac/
+/mac/USBDriver/BuildProduct/
+/mac/USBDriver/DerivedData/
+/mac/USBDriver/build-installer/
+/mac/USBDriver/build-lib/
 *.a
 *.o
 *.app
+*.zip
+*.dylib
+*.orig
+*.bak
+
+# Xcode
+.atp
+xcuserdata/
+DerivedData/
+*.xcworkspace
+!default.xcworkspace
+*.xccheckout
+*.xcscheme
+!default.xcscheme
+*.xcuserstate
 
 # Data & Config
 vault.data
 vault.json
 *.seed
 *.seedHeader
+ioreg_dump.txt
+
+# Media & Logs
+videos/
+/nohup.out
 
 # Python
 venv/

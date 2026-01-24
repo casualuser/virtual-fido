@@ -100,8 +100,10 @@ func runCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex-encoded seed (if empty, read from stdin)")
-	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
+	cmd.Flags().StringVar(&seedFile, "seed-file", "",
+		"path to hex-encoded seed (if empty, read from stdin)")
+	cmd.Flags().StringVar(&countersPath, "counters", "",
+		"path to encrypted counter store (optional; defaults to time-based)")
 	defaultTransport, transportOptions := transport.TransportOptions()
 	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
 	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO", "UHID/USB device name")
@@ -113,7 +115,9 @@ type promptApprover struct {
 	alwaysApprove bool
 }
 
-func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool {
+func (p promptApprover) ApproveClientAction(
+	action fido_client.ClientAction,
+	params fido_client.ClientActionRequestParams) bool {
 	rp := params.RelyingParty
 	if rp == "" {
 		rp = "<unknown-rp>"
@@ -136,7 +140,9 @@ func (p promptApprover) ApproveClientAction(action fido_client.ClientAction, par
 		}
 		return ok
 	case fido_client.ClientActionFIDOGetAssertion:
-		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user))
+		ok := p.alwaysApprove || transport.Prompt(
+			fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user),
+		)
 		if ok {
 			if p.alwaysApprove {
 				fmt.Printf("Auto-approved login for %q user %q\n", rp, user)
@@ -211,8 +217,10 @@ func onlineOnlyCmd() *cobra.Command {
 		},
 	}
 	defaultTransport, transportOptions := transport.TransportOptions()
-	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
-	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO (relay)", "UHID device name")
+	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport),
+		"transport: "+transportOptions)
+	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO (relay)",
+		"UHID device name")
 	return cmd
 }
 
@@ -226,9 +234,12 @@ func offlineOnlyCmd() *cobra.Command {
 			return runOfflineVault(seedFile, countersPath)
 		},
 	}
-	cmd.Flags().StringVar(&seedFile, "seed-file", "", "path to hex seed (if empty, stdin)")
-	cmd.Flags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (optional; defaults to time-based)")
-	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "Auto-approve all requests")
+	cmd.Flags().StringVar(&seedFile, "seed-file", "",
+		"path to hex seed (if empty, stdin)")
+	cmd.Flags().StringVar(&countersPath, "counters", "",
+		"path to encrypted counter store (optional; defaults to time-based)")
+	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false,
+		"Auto-approve all requests")
 	return cmd
 }
 
@@ -404,7 +415,8 @@ func runOnlineUHID(name string) error {
 		_ = dev.Close()
 	}()
 
-	fmt.Printf("Online-only UHID relay started as %q. Copy request hex to offline-only and paste responses back.\n", name)
+	fmt.Printf("Online-only UHID relay started as %q. "+
+		"Copy request hex to offline-only and paste responses back.\n", name)
 	reader := bufio.NewReader(os.Stdin)
 
 	ctapProxy := &offlineProxy{kind: airgap.HIDKindCTAP, reader: reader}

@@ -39,7 +39,8 @@ const (
 
 // Start runs the virtual-fido server over the selected transport.
 // On Linux defaults to UHID, elsewhere to USBIP, unless overridden by caller.
-func Start(mode Mode, client virtual_fido.FIDOClient, deviceName string) {
+func Start(mode Mode, client virtual_fido.FIDOClient,
+	deviceName string) {
 	switch mode {
 	case ModeUSBIP:
 		runUsbipServer(client)

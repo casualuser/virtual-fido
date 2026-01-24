@@ -4,6 +4,7 @@ package transport
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 
@@ -30,6 +31,8 @@ func runDarwinServer(client virtual_fido.FIDOClient, deviceName string) {
 	ctapHIDServer := ctap_hid.NewCTAPHIDServer(ctapServer, u2fServer)
 
 	// Note: deviceName is currently ignored by the mac driver, but we could pass it if supported later
+	fmt.Printf("DEBUG: calling mac.Start\n")
+	os.Stdout.Sync()
 	mac.Start(ctapHIDServer)
 
 	<-ctx.Done()

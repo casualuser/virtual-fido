@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     var viewModel: ContentViewModel = .init()
+    
     var body: some View {
         VStack {
             Button {
@@ -21,12 +22,21 @@ struct ContentView: View {
             } label: {
                 Text("Uninstall Dext")
             }
-
-                
-    
-
         }
         .padding()
+        .onAppear {
+            if CommandLine.arguments.contains("--install") {
+                viewModel.onCompletion = { success in
+                    exit(success ? 0 : 1)
+                }
+                viewModel.activate()
+            } else if CommandLine.arguments.contains("--uninstall") {
+                viewModel.onCompletion = { success in
+                    exit(success ? 0 : 1)
+                }
+                viewModel.deactivate()
+            }
+        }
     }
 }
 
