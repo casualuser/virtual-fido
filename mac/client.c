@@ -1,4 +1,6 @@
 
+#ifndef HID_VIRTUAL
+
 #include "_cgo_export.h"
 #include "output/include/USBDriverLib/USBDriverLib.h"
 #include <stdio.h> // Added for fprintf
@@ -32,3 +34,5 @@ void start_device(void) {
   device = usb_driver_init_device(receive_data);
   usb_driver_start(device);
 }
+
+#endif

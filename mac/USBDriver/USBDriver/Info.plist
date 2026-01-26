@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleShortVersionString</key>
-	<string>14.0</string>
+	<string>10.0</string>
 	<key>CFBundleVersion</key>
-	<string>140</string>
+	<string>100</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>USBDriver</key>
@@ -16,12 +16,8 @@
 			<string>com.apple.kpi.iokit</string>
 			<key>IOClass</key>
 			<string>IOUserService</string>
-			<key>IOMatchCategory</key>
-			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOProviderClass</key>
 			<string>IOUserResources</string>
-			<key>IOResourceMatch</key>
-			<string>IOKit</string>
 			<key>IOUserClass</key>
 			<string>USBDriver</string>
 			<key>IOUserServerName</key>
@@ -41,7 +37,9 @@
 				<string>USBUserClient</string>
 			</dict>
 			<key>IOUserClientAllowedEntitlements</key>
-			<true/>
+			<array>
+				<string>com.apple.developer.driverkit.user-client-access</string>
+			</array>
 		</dict>
 	</dict>
 </dict>

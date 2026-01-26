@@ -23,8 +23,9 @@ def main():
     time.sleep(1)
 
     # 1. Start Virtual FIDO (Vault + Transport)
-    if not os.path.exists("test.seed"):
-        with open("test.seed", "w") as f:
+    seed_path = "/tmp/seed"
+    if not os.path.exists(seed_path):
+        with open(seed_path, "w") as f:
             f.write("00"*32)
 
     print("Subprocess: Starting Monolithic Virtual FIDO (Darwin)...")
@@ -33,7 +34,8 @@ def main():
     cmd = [
         "sudo",
         "./virtual-fido-macos", "run",
-        "--seed-file", "test.seed",
+        "--device-name", "HHhhh",
+        "--seed-file", seed_path,
         "--auto-approve"
     ]
 

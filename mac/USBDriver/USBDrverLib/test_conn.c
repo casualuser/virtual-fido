@@ -16,13 +16,26 @@ int main() {
   printf("Sleeping 2 seconds for DEXT stability...\n");
   sleep(2);
 
+  printf("Searching for class 'USBDriver'...\n");
   service = IOServiceGetMatchingService(kIOMainPortDefault,
-                                        IOServiceNameMatching(SERVICE_NAME));
+                                        IOServiceMatching("USBDriver"));
   if (!service) {
-    printf("FAILED: Could not find service with name '%s'\n", SERVICE_NAME);
+    printf("Searching for name 'USBDriver'...\n");
+    service = IOServiceGetMatchingService(kIOMainPortDefault,
+                                          IOServiceNameMatching(SERVICE_NAME));
+  }
+  if (!service) {
+    printf("Searching for bundle ID 'id.bulwark.VirtualUSBDriver.driver'...\n");
+    service = IOServiceGetMatchingService(
+        kIOMainPortDefault,
+        IOServiceNameMatching("id.bulwark.VirtualUSBDriver.driver"));
+  }
+
+  if (!service) {
+    printf("FAILED: Could not find service by class, name, or bundle ID.\n");
     return 1;
   }
-  printf("SUCCESS: Found service '%s'\n", SERVICE_NAME);
+  printf("SUCCESS: Found service!\n");
 
   printf("\n--- Stage 2: Connection Retries ---\n");
   // Try to open connection with 20 retries and 500ms sleep
