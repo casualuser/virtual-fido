@@ -11,21 +11,23 @@ def run(username, site="https://webauthn.io"):
         
         print(f"Navigating to {site}...")
         page.goto(site)
+        page.screenshot(path="videos/01_navigation.png")
         
         # Registration
         print(f"Registering user: {username}")
         page.fill("#input-email", username)
         page.click("#register-button")
+        page.screenshot(path="videos/02_registration_clicked.png")
         
         print("Waiting for FIDO registration prompt...")
-        # We wait for the success message or a timeout
-        # In a real FIDO test, the OS prompt appears here.
-        # Playwright cannot interact with the OS prompt, but it waits for the browser to receive the result.
         try:
-            page.wait_for_selector("text=Registration Successful", timeout=60000)
+            page.wait_for_selector("text=Registration Successful", timeout=30000)
             print("Registration successful!")
+            page.screenshot(path="videos/03_registration_success.png")
         except Exception as e:
             print(f"Registration failed or timed out: {e}")
+            page.screenshot(path="videos/03_registration_failed.png")
+            context.close()
             browser.close()
             return
 
@@ -34,15 +36,19 @@ def run(username, site="https://webauthn.io"):
         # Login
         print(f"Logging in user: {username}")
         page.click("#login-button")
+        page.screenshot(path="videos/04_login_clicked.png")
         
         print("Waiting for FIDO login prompt...")
         try:
-            page.wait_for_selector("text=You're logged in", timeout=60000)
+            page.wait_for_selector("text=You're logged in", timeout=30000)
             print("Login successful!")
+            page.screenshot(path="videos/05_login_success.png")
         except Exception as e:
             print(f"Login failed or timed out: {e}")
+            page.screenshot(path="videos/05_login_failed.png")
         
-        time.sleep(5)
+        time.sleep(2)
+        context.close()
         browser.close()
 
 if __name__ == "__main__":
