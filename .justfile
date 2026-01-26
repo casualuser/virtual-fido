@@ -54,9 +54,13 @@ sync-binary: sync
 
 
 
+# Build HIDVirtualDevice Swift library
+build-hidvirtual:
+    @echo "Building HIDVirtualDevice library..."
+    bash mac/HIDVirtualDevice/build.sh
 
 # Build macOS components locally
-build: build-driver build-client
+build: build-hidvirtual build-client
 
 build-driver:
     rm -rf mac/output
@@ -66,8 +70,8 @@ build-driver:
     cd mac/USBDriver && xcodebuild clean build -scheme USBDriverLib -configuration Debug -derivedDataPath build/lib CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO PROVISIONING_PROFILE_SPECIFIER=""
 
     # Manual Ad-Hoc Signing of the artifacts in the build directory
-    codesign --force --deep --sign - --entitlements mac/USBDriver/USBDriver/USBDriver.entitlements mac/USBDriver/build/installer/Build/Products/Debug/USBDriverInstaller.app/Contents/Library/SystemExtensions/id.bulwark.VirtualUSBDriver.driver.dext
-    codesign --force --deep --sign - --entitlements mac/USBDriver/USBDriverInstaller/USBDriverInstaller.entitlements mac/USBDriver/build/installer/Build/Products/Debug/USBDriverInstaller.app
+    codesign --force --deep --sign - --team-id YWN2K8NKBD --entitlements mac/USBDriver/USBDriver/USBDriver.entitlements mac/USBDriver/build/installer/Build/Products/Debug/USBDriverInstaller.app/Contents/Library/SystemExtensions/id.bulwark.VirtualUSBDriver.driver.dext
+    codesign --force --deep --sign - --team-id YWN2K8NKBD --entitlements mac/USBDriver/USBDriverInstaller/USBDriverInstaller.entitlements mac/USBDriver/build/installer/Build/Products/Debug/USBDriverInstaller.app
     # Move artifact to expected location
     cp -r mac/USBDriver/build/installer/Build/Products/Debug/USBDriverInstaller.app mac/output/
     # Zip the app bundle for reliable transfer (VirtioFS listing bug workaround)
@@ -84,6 +88,36 @@ build-client:
     # Clean go cache to ensure CGO changes are picked up
     go clean -cache
     go build -o virtual-fido-macos ./cmd/virtual-fido
-    codesign --force --sign - -i id.bulwark.virtual-fido --entitlements mac/entitlements.plist virtual-fido-macos
+    codesign --force --sign - --team-id YWN2K8NKBD -i id.bulwark.virtual-fido --entitlements mac/entitlements.plist virtual-fido-macos
 
 
+
+
+build-client-hid:
+    # Clean go cache to ensure CGO changes are picked up
+    go clean -cache
+    go build -tags hidvirtual -o virtual-fido-macos ./cmd/virtual-fido
+    # Add RPATH so the binary can find the dylibs in mac/output/ relative to itself
+    install_name_tool -add_rpath @executable_path/mac/output/ virtual-fido-macos || true
+    codesign --force --sign - --entitlements mac/entitlements-hid.plist virtual-fido-macos
+
+install-software-hid: build-hidvirtual build-client-hid
+
+insert-key-hid:
+    @echo "Starting Virtual FIDO Device (HID)..."
+    nohup ./virtual-fido-macos run --seed-file seed.hex --transport darwin > hid_log.txt 2>&1 &
+    @sleep 2
+    @if pgrep -f "virtual-fido-macos" > /dev/null; then \
+        echo "✅ Process started successfully."; \
+    else \
+        echo "❌ Process failed to start. Check hid_log.txt and system logs (0xe00002c2 indicates permission issue)."; \
+    fi
+
+eject-key-hid:
+    @echo "Stopping Virtual FIDO Device..."
+    pkill -9 -f "virtual-fido-macos" || true
+    @rm -f hid_log.txt
+
+check-device-hid:
+    @echo "Checking for Virtual FIDO device in IOHID registry..."
+    @ioreg -n IOHIDUserDevice -l | grep -i "Virtual FIDO" || echo "Device not found."

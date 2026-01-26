@@ -45,6 +45,9 @@ ioreg_dump.txt
 # Media & Logs
 videos/
 /nohup.out
+*.log
+*.txt
+seed.hex
 
 # Python
 venv/
