@@ -236,7 +236,7 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
 		return []byte{byte(ctap2ErrOperationDenied)}
 	}
-	flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
+	flags = flags | authDataFlagUserPresent
 
 	credentialSource := server.client.NewCredentialSource(args.PubKeyCredParams, args.ExcludeList, args.RP, args.User)
 	if credentialSource == nil {
@@ -246,6 +246,8 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 	attestedCredentialData := MakeAttestedCredentialData(credentialSource)
 	authenticatorData := MakeAuthData(args.RP.ID, credentialSource, attestedCredentialData, byte(flags))
 
+	// We use "none" attestation here because this is a virtual authenticator
+	// and does not have a hardware-backed attestation key.
 	response := MakeCredentialResponse{
 		AuthData:             authenticatorData,
 		FormatIdentifer:      "none",
@@ -351,7 +353,7 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 			ctapLogger.Printf("ERROR: Unapproved action (Account login)")
 			return []byte{byte(ctap2ErrOperationDenied)}
 		}
-		flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
+		flags = flags | authDataFlagUserPresent
 	}
 
 	newCount := server.client.BumpSignatureCounter(credentialSource)

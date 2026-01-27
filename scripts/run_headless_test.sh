@@ -3,7 +3,7 @@ set -e
 
 # Kill any existing processes
 echo "Cleaning up..."
-echo 123qwe | sudo -S killall virtual-fido-macos || true
+echo "${SUDO_PASSWORD}" | sudo -S killall virtual-fido-macos || true
 killall USBDriverInstaller || true
 
 # Unix-style install to /Applications

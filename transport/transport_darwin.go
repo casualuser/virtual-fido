@@ -30,7 +30,8 @@ func runDarwinServer(client virtual_fido.FIDOClient, deviceName string) {
 	ctapHIDServer := ctap_hid.NewCTAPHIDServer(ctapServer, u2fServer)
 
 	// Note: deviceName is currently ignored by the mac driver, but we could pass it if supported later
-	mac.Start(ctapHIDServer)
+	go mac.Start(ctapHIDServer)
 
 	<-ctx.Done()
+	mac.Stop()
 }

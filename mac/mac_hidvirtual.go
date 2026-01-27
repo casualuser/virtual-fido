@@ -48,6 +48,12 @@ func HIDReceiveReport(dataPointer *C.uint8_t, length C.size_t) {
 	ctapHIDServer.HandleMessage(data)
 }
 
+var stopChannel = make(chan bool)
+
+func Stop() {
+	stopChannel <- true
+}
+
 func Start(server *ctap_hid.CTAPHIDServer) {
 	server.SetResponseHandler(handleResponse)
 	ctapHIDServer = server
@@ -65,6 +71,7 @@ func Start(server *ctap_hid.CTAPHIDServer) {
 
 	hidLogger.Println("HIDVirtualDevice started successfully")
 
-	// Keep running (the device will handle events via callbacks)
-	select {}
+	// Keep running (the device will handle events via callbacks) until stopped
+	<-stopChannel
+	hidLogger.Println("Stopping HIDVirtualDevice...")
 }

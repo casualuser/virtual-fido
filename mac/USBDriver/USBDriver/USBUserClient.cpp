@@ -203,6 +203,9 @@ USBUserClient::HandleNotifyFrame(void *reference,
     Log("Invalid NotifiyFrame completion");
     return kIOReturnBadArgument;
   }
+  if (ivars->notifyFrameAction != nullptr) {
+    ivars->notifyFrameAction->release();
+  }
   ivars->notifyFrameAction = arguments->completion;
   ivars->notifyFrameAction->retain();
   return kIOReturnSuccess;
@@ -228,6 +231,12 @@ void USBUserClient::newHIDFrame(IOMemoryDescriptor *report,
   uint8_t *byteAddress = reinterpret_cast<uint8_t *>(address);
   usb_driver_hid_frame_t *frame =
       (usb_driver_hid_frame_t *)IOMallocZero(sizeof(usb_driver_hid_frame_t));
+
+  if (length > sizeof(frame->data)) {
+    Log("Clamping frame length from %llu to %lu", length, sizeof(frame->data));
+    length = sizeof(frame->data);
+  }
+
   frame->length = length;
   memcpy(frame->data, byteAddress, length);
   linked_list_push(ivars->saved_frames, (void *)frame);
