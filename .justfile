@@ -45,7 +45,7 @@ dkit_logs:
 vhid_build: vhid_build_lib
     go clean -cache
     go build -tags hidvirtual -o virtual-fido-vhid ./cmd/virtual-fido
-    install_name_tool -add_rpath @executable_path/mac/output/ virtual-fido-vhid || true
+    otool -l virtual-fido-vhid | grep -q "@executable_path/mac/output/" || install_name_tool -add_rpath @executable_path/mac/output/ virtual-fido-vhid
     codesign --force --sign - --entitlements mac/entitlements-hid.plist virtual-fido-vhid
 
 vhid_build_lib:

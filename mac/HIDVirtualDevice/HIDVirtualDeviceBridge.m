@@ -9,14 +9,12 @@ hid_virtual_device_t hid_virtual_device_create(const char *device_name) {
         device_name);
   @autoreleasepool {
     NSString *name = [NSString stringWithUTF8String:device_name];
-    NSError *error = nil;
-
     NSLog(@"[HIDVirtualDeviceBridge] Initializing VirtualFIDODevice...");
     VirtualFIDODevice *device =
-        [[VirtualFIDODevice alloc] initWithDeviceName:name error:&error];
+        [[VirtualFIDODevice alloc] initWithDeviceName:name];
 
-    if (error) {
-      NSLog(@"[HIDVirtualDeviceBridge] Failed to create device: %@", error);
+    if (!device) {
+      NSLog(@"[HIDVirtualDeviceBridge] Failed to create device");
       return NULL;
     }
 

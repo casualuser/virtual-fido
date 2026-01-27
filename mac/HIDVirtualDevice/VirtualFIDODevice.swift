@@ -26,7 +26,7 @@ let FIDOReportDescriptor: [UInt8] = [
 public typealias HIDReportCallback = @convention(c) (UnsafePointer<UInt8>, UInt) -> Void
 
 /// Delegate for handling HID device events
-class VirtualFIDODeviceDelegate: HIDVirtualDeviceDelegate {
+final class VirtualFIDODeviceDelegate: HIDVirtualDeviceDelegate, @unchecked Sendable {
     private var callback: HIDReportCallback?
     
     func setCallback(_ callback: @escaping HIDReportCallback) {
@@ -62,7 +62,7 @@ class VirtualFIDODeviceDelegate: HIDVirtualDeviceDelegate {
     private var delegate: VirtualFIDODeviceDelegate
     private var activationTask: Task<Void, Never>?
     
-    @objc public init(deviceName: String) throws {
+    @objc public init(deviceName: String) {
         NSLog("[HIDVirtualDevice] init started for device: %@", deviceName)
         self.delegate = VirtualFIDODeviceDelegate()
         super.init()
@@ -76,19 +76,15 @@ class VirtualFIDODeviceDelegate: HIDVirtualDeviceDelegate {
         )
         
         NSLog("[HIDVirtualDevice] Creating HIDVirtualDevice instance...")
-        device = try HIDVirtualDevice(properties: properties)
+        device = HIDVirtualDevice(properties: properties)
     }
     
     @objc public func activate() {
         NSLog("[HIDVirtualDevice] activate() called")
         activationTask = Task {
-            do {
-                NSLog("[HIDVirtualDevice] Calling device.activate()...")
-                try await device?.activate(delegate: delegate)
-                NSLog("[HIDVirtualDevice] Device activated successfully!")
-            } catch {
-                NSLog("[HIDVirtualDevice] Activation error: %@", error.localizedDescription)
-            }
+            NSLog("[HIDVirtualDevice] Calling device.activate()...")
+            await device?.activate(delegate: delegate)
+            NSLog("[HIDVirtualDevice] Device activated successfully!")
         }
     }
     
