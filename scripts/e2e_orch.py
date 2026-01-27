@@ -4,9 +4,10 @@ import signal
 import sys
 import time
 import threading
+import argparse
 
 # This script runs ENTIRELY on the Guest VM.
-# It requires 'virtual-fido-macos' to be in the current directory.
+# It supports both dkit and vhid flows.
 
 def read_stream(stream, prefix):
     for line in iter(stream.readline, ''):
@@ -15,77 +16,83 @@ def read_stream(stream, prefix):
     stream.close()
 
 def main():
-    print("Starting All-in-One E2E Test (VM Side) - Monolithic Mode...")
+    parser = argparse.ArgumentParser(description="E2E Orchestrator for Virtual FIDO")
+    parser.add_argument("--binary", default="./virtual-fido-macos", help="Path to virtual-fido binary")
+    parser.add_argument("--log", default="/tmp/virtual-fido.log", help="Path to log file")
+    parser.add_argument("--signal", default="/tmp/fido_approve", help="Path to approval signal file")
+    args = parser.parse_args()
+
+    print(f"Starting E2E Test with binary: {args.binary}")
 
     # 0. Cleanup existing processes
-    print("Cleanup: Killing existing virtual-fido-macos processes...")
-    subprocess.run(["sudo", "killall", "virtual-fido-macos"], stderr=subprocess.DEVNULL)
+    binary_name = os.path.basename(args.binary)
+    print(f"Cleanup: Killing existing {binary_name} processes...")
+    subprocess.run(["sudo", "killall", binary_name], stderr=subprocess.DEVNULL)
     time.sleep(1)
 
-    # 1. Start Virtual FIDO (Vault + Transport)
+    # 1. Start Virtual FIDO
     seed_path = "/tmp/seed"
     if not os.path.exists(seed_path):
         with open(seed_path, "w") as f:
             f.write("00"*32)
 
-    print("Subprocess: Starting Monolithic Virtual FIDO (Darwin)...")
-    
-    # We use 'run' command which links Vault <-> Transport directly
+    # We use 'run' command with natural flow flags for automated testing
     cmd = [
         "sudo",
-        "./virtual-fido-macos", "run",
+        args.binary, "run",
         "--device-name", "HHhhh",
         "--seed-file", seed_path,
-        "--auto-approve"
+        "--auto-approve",
+        "--auto-select"
     ]
 
-    
     # Make sure binary is executable
-    subprocess.run(["chmod", "+x", "./virtual-fido-macos"])
+    subprocess.run(["chmod", "+x", args.binary])
     
     vf_proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, # Merge stderr for debug logs
+        stderr=subprocess.STDOUT, 
         text=True,
         bufsize=1
     )
     
     # Background Reader Thread for VF Output
-    t_vf = threading.Thread(target=read_stream, args=(vf_proc.stdout, "[VF] "))
+    t_vf = threading.Thread(target=read_stream, args=(vf_proc.stdout, f"[{binary_name}] "))
     t_vf.daemon = True
     t_vf.start()
 
-    # Wait for driver initialization (heuristic)
+    # Wait for driver initialization
     print("Waiting 10s for driver to initialize...")
     time.sleep(10)
 
     # Check if process is still alive
     if vf_proc.poll() is not None:
-        print(f"ERROR: virtual-fido-macos exited immediately with code {vf_proc.returncode}")
-        # Capture any immediate output
+        print(f"ERROR: {binary_name} exited immediately with code {vf_proc.returncode}")
         return
 
     # --- 2. Run Playwright Test ---
     print("Starting Playwright Test...")
     pw_cmd = [
-        "/Users/amo/.pyenv/versions/3.12.12/bin/python3.12", "tests/playwright_fido.py"
+        "/Users/amo/.pyenv/versions/3.12.12/bin/python3.12", "-u", "test/playwright_fido.py"
     ]
     
-    # We assume playwright_fido.py is in the tests/ directory
-    pw_proc = subprocess.run(pw_cmd, capture_output=True, text=True)
+    pw_proc = subprocess.Popen(
+        pw_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
 
-    print("Playwright Output:")
-    print(pw_proc.stdout)
+    for line in iter(pw_proc.stdout.readline, ''):
+        print(f"PLAYWRIGHT: {line.strip()}")
+        sys.stdout.flush()
     
-    if pw_proc.returncode != 0:
-        print("Playwright Error:")
-        print(pw_proc.stderr)
-    
+    pw_proc.wait()
     print("Test Finished. Cleaning up...")
     
     # --- 3. Cleanup ---
-    # Kill VF process
     subprocess.run(["sudo", "kill", str(vf_proc.pid)])
     try:
         vf_proc.terminate()

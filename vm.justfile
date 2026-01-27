@@ -3,43 +3,87 @@ set shell := ["bash", "-c"]
 
 # Path validation
 PROJECT_DIR := shell("pwd")
-SCRIPT_DIR := PROJECT_DIR + "/scripts"
+PYTHON := "/Users/amo/.pyenv/versions/3.12.12/bin/python3.12"
 
 # install python dependencies
 deps:
-    /Users/amo/.pyenv/versions/3.12.12/bin/python3.12 -m pip install playwright
-    /Users/amo/.pyenv/versions/3.12.12/bin/python3.12 -m playwright install chromium
+    {{PYTHON}} -m pip install playwright
+    {{PYTHON}} -m playwright install chromium
 
-# cleanup environment
-cleanup:
-    echo "Cleaning up..."
-    sudo pkill -9 -f "virtual-fido-macos" || true
+# --- DKIT FLOW (DriverKit) ---
 
-# Full test flow on VM
-test: cleanup deps verify
+dkit_cleanup:
+    echo "Cleaning up DKIT..."
+    sudo pkill -9 -f "virtual-fido-dkit" || true
 
-# run the e2e python test
-verify:
-    chmod +x {{PROJECT_DIR}}/virtual-fido-macos
-    echo "Running Python E2E Test (HID Transport)..."
-    # We run from project dir so scripts can find relative assets if needed
-    cd {{PROJECT_DIR}} && /Users/amo/.pyenv/versions/3.12.12/bin/python3.12 -u scripts/e2e_orch.py --transport hid
+dkit_test: dkit_cleanup deps dkit_verify
 
-# Manual Key management
-insert:
-    @echo "Inserting Virtual FIDO Key (HID)..."
-    sudo pkill -9 -f "virtual-fido-macos" || true
-    # Clear old logs and write start marker
-    sudo rm -f /tmp/virtual-fido.log
-    echo "--- LOG START: $(date) ---" | sudo tee /tmp/virtual-fido.log > /dev/null
-    chmod +x {{PROJECT_DIR}}/virtual-fido-macos
-    # Create a random seed if it doesn't exist (required for key persistence)
+dkit_verify:
+    chmod +x {{PROJECT_DIR}}/virtual-fido-dkit
+    echo "Running DKIT E2E Test..."
+    cd {{PROJECT_DIR}} && {{PYTHON}} -u scripts/e2e_orch.py --binary ./virtual-fido-dkit --log /tmp/virtual-fido-dkit.log --signal /tmp/fido_approve_dkit
+
+dkit_insert args="":
+    @echo "Inserting Virtual FIDO Key (DKIT)..."
+    sudo pkill -9 -f "virtual-fido-dkit" || true
+    sudo rm -f /tmp/virtual-fido-dkit.log
+    echo "--- DKIT LOG START: $(date) ---" | sudo tee /tmp/virtual-fido-dkit.log > /dev/null
+    chmod +x {{PROJECT_DIR}}/virtual-fido-dkit
     [ -f /tmp/seed ] || (head -c 32 /dev/urandom | xxd -p | tr -d '\n' > /tmp/seed)
-    # Run with HID transport flag and auto-approve for seamless testing
-    cd {{PROJECT_DIR}} && sudo bash -c "nohup ./virtual-fido-macos run --seed-file /tmp/seed --transport darwin --auto-approve >> /tmp/virtual-fido.log 2>&1 &"
-    @echo "Key inserted. Logs at /tmp/virtual-fido.log"
+    cd {{PROJECT_DIR}} && sudo bash -c "nohup ./virtual-fido-dkit run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_dkit {{args}} >> /tmp/virtual-fido-dkit.log 2>&1 &"
+    @echo "DKIT Key inserted. Logs at /tmp/virtual-fido-dkit.log"
 
-remove:
-    @echo "Removing Virtual FIDO Key..."
-    sudo pkill -9 -f "virtual-fido-macos" || true
-    @echo "Key removed."
+dkit_auto:
+    just -f vm.justfile dkit_insert "--always-approve --auto-select"
+
+dkit_activate:
+    sudo touch /tmp/fido_approve_dkit
+    @echo "Sent DKIT activation signal."
+
+dkit_remove:
+    sudo pkill -9 -f "virtual-fido-dkit" || true
+
+dkit_logs:
+    tail -f /tmp/virtual-fido-dkit.log
+
+# --- VHID FLOW (Virtual HID) ---
+
+vhid_cleanup:
+    echo "Cleaning up VHID..."
+    sudo pkill -9 -f "virtual-fido-vhid" || true
+
+vhid_test: vhid_cleanup deps vhid_verify
+
+vhid_verify:
+    chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
+    echo "Running VHID E2E Test..."
+    cd {{PROJECT_DIR}} && {{PYTHON}} -u scripts/e2e_orch.py --binary ./virtual-fido-vhid --log /tmp/virtual-fido-vhid.log --signal /tmp/fido_approve_vhid
+
+vhid_insert args="":
+    @echo "Inserting Virtual FIDO Key (VHID)..."
+    sudo pkill -9 -f "virtual-fido-vhid" || true
+    sudo rm -f /tmp/virtual-fido-vhid.log
+    echo "--- VHID LOG START: $(date) ---" | sudo tee /tmp/virtual-fido-vhid.log > /dev/null
+    chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
+    [ -f /tmp/seed ] || (head -c 32 /dev/urandom | xxd -p | tr -d '\n' > /tmp/seed)
+    cd {{PROJECT_DIR}} && sudo bash -c "nohup ./virtual-fido-vhid run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_vhid {{args}} >> /tmp/virtual-fido-vhid.log 2>&1 &"
+    @echo "VHID Key inserted. Logs at /tmp/virtual-fido-vhid.log"
+
+vhid_auto:
+    just -f vm.justfile vhid_insert "--always-approve --auto-select"
+
+vhid_activate:
+    sudo touch /tmp/fido_approve_vhid
+    @echo "Sent VHID activation signal."
+
+vhid_remove:
+    sudo pkill -9 -f "virtual-fido-vhid" || true
+
+vhid_logs:
+    tail -f /tmp/virtual-fido-vhid.log
+
+# Legacy/Default alias (default to dkit for now)
+insert args="": (dkit_insert args)
+remove: dkit_remove
+auto: dkit_auto
+cleanup: dkit_cleanup vhid_cleanup

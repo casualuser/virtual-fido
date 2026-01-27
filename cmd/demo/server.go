@@ -18,19 +18,19 @@ type ClientSupport struct {
 	vaultPassphrase string
 }
 
-func (support *ClientSupport) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool {
+func (support *ClientSupport) ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) (bool, int) {
 	switch action {
 	case fido_client.ClientActionFIDOGetAssertion:
-		return prompt(fmt.Sprintf("Approve login for \"%s\" with identity \"%s\" (Y/n)?", params.RelyingParty, params.UserName))
+		return prompt(fmt.Sprintf("Approve login for \"%s\" with identity \"%s\" (Y/n)?", params.RelyingParty, params.UserName)), 0
 	case fido_client.ClientActionFIDOMakeCredential:
-		return prompt(fmt.Sprintf("Approve account creation for \"%s\" (Y/n)?", params.RelyingParty))
+		return prompt(fmt.Sprintf("Approve account creation for \"%s\" (Y/n)?", params.RelyingParty)), 0
 	case fido_client.ClientActionU2FAuthenticate:
-		return prompt("Approve registration of U2F device (Y/n)?")
+		return prompt("Approve registration of U2F device (Y/n)?"), 0
 	case fido_client.ClientActionU2FRegister:
-		return prompt("Approve use of U2F device (Y/n)?")
+		return prompt("Approve use of U2F device (Y/n)?"), 0
 	}
 	fmt.Printf("Unknown client action for approval: %d\n", action)
-	return false
+	return false, 0
 }
 
 func (support *ClientSupport) SaveData(data []byte) {

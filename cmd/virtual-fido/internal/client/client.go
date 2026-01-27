@@ -30,7 +30,7 @@ type CounterState interface {
 
 // Approver proxies user prompts.
 type Approver interface {
-	ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) bool
+	ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) (bool, int)
 }
 
 // SeedClient implements CTAP/U2F clients using deterministic credentials derived from a seed.
@@ -130,14 +130,16 @@ func (c *SeedClient) ApproveAccountCreation(rpName, rpID string) bool {
 	if rpName == "" {
 		rpName = rpID
 	}
-	return c.approver.ApproveClientAction(fido_client.ClientActionFIDOMakeCredential, fido_client.ClientActionRequestParams{RelyingParty: rpName})
+	ok, _ := c.approver.ApproveClientAction(fido_client.ClientActionFIDOMakeCredential, fido_client.ClientActionRequestParams{RelyingParty: rpName})
+	return ok
 }
 
 func (c *SeedClient) ApproveAccountLogin(cs *identities.CredentialSource) bool {
-	return c.approver.ApproveClientAction(fido_client.ClientActionFIDOGetAssertion, fido_client.ClientActionRequestParams{
+	ok, _ := c.approver.ApproveClientAction(fido_client.ClientActionFIDOGetAssertion, fido_client.ClientActionRequestParams{
 		RelyingParty: cs.RelyingParty.Name,
 		UserName:     cs.User.Name,
 	})
+	return ok
 }
 
 // --- PIN stubs ---
@@ -161,11 +163,13 @@ func (c *SeedClient) NewAuthenticationCounterId() uint32 {
 }
 
 func (c *SeedClient) ApproveU2FRegistration(*webauthn.KeyHandle) bool {
-	return c.approver.ApproveClientAction(fido_client.ClientActionU2FRegister, fido_client.ClientActionRequestParams{})
+	ok, _ := c.approver.ApproveClientAction(fido_client.ClientActionU2FRegister, fido_client.ClientActionRequestParams{})
+	return ok
 }
 
 func (c *SeedClient) ApproveU2FAuthentication(*webauthn.KeyHandle) bool {
-	return c.approver.ApproveClientAction(fido_client.ClientActionU2FAuthenticate, fido_client.ClientActionRequestParams{})
+	ok, _ := c.approver.ApproveClientAction(fido_client.ClientActionU2FAuthenticate, fido_client.ClientActionRequestParams{})
+	return ok
 }
 
 // --- helpers ---

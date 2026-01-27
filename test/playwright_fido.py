@@ -19,9 +19,16 @@ def run(username, site="https://webauthn.io"):
         page.click("#register-button")
         page.screenshot(path="videos/02_registration_clicked.png")
         
+        # Hack: The browser might show a "How do you want to use your passkey?" popup.
+        # Pressing 'Enter' often selects the default/available security key.
+        time.sleep(2)
+        page.keyboard.press("ArrowDown")
+        time.sleep(0.5)
+        page.keyboard.press("Enter")
+        
         print("Waiting for FIDO registration prompt...")
         try:
-            page.wait_for_selector("text=Registration Successful", timeout=30000)
+            page.wait_for_selector("text=Registration Successful", timeout=120000)
             print("Registration successful!")
             page.screenshot(path="videos/03_registration_success.png")
         except Exception as e:
@@ -40,7 +47,7 @@ def run(username, site="https://webauthn.io"):
         
         print("Waiting for FIDO login prompt...")
         try:
-            page.wait_for_selector("text=You're logged in", timeout=30000)
+            page.wait_for_selector("text=You're logged in", timeout=120000)
             print("Login successful!")
             page.screenshot(path="videos/05_login_success.png")
         except Exception as e:

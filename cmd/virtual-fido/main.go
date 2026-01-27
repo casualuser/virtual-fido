@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,6 +65,8 @@ func runCmd() *cobra.Command {
 	var transportFlag string
 	var deviceName string
 	var alwaysApprove bool
+	var autoSelect bool
+	var signalFile string
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run virtual authenticator (seed-based)",
@@ -86,7 +89,11 @@ func runCmd() *cobra.Command {
 				fmt.Print(cs.String())
 				counters = cs
 			}
-			approver := promptApprover{alwaysApprove: alwaysApprove}
+			approver := promptApprover{
+				alwaysApprove: alwaysApprove,
+				autoSelect:    autoSelect,
+				signalFile:    signalFile,
+			}
 			cl := client.New(seedBytes, counters, approver)
 			mode := transport.Mode(transportFlag)
 			if mode == "" {
@@ -107,17 +114,21 @@ func runCmd() *cobra.Command {
 	defaultTransport, transportOptions := transport.TransportOptions()
 	cmd.Flags().StringVar(&transportFlag, "transport", string(defaultTransport), "transport: "+transportOptions)
 	cmd.Flags().StringVar(&deviceName, "device-name", "Virtual FIDO", "UHID/USB device name")
-	cmd.Flags().BoolVar(&alwaysApprove, "auto-approve", false, "auto-approve all prompts without asking")
+	cmd.Flags().BoolVar(&alwaysApprove, "always-approve", false, "Always approve FIDO requests")
+	cmd.Flags().BoolVar(&autoSelect, "auto-select", false, "Auto-select first identity if multiple are found")
+	cmd.Flags().StringVar(&signalFile, "signal-file", "", "Path to the approval signal file")
 	return cmd
 }
 
 type promptApprover struct {
 	alwaysApprove bool
+	autoSelect    bool
+	signalFile    string
 }
 
 func (p promptApprover) ApproveClientAction(
 	action fido_client.ClientAction,
-	params fido_client.ClientActionRequestParams) bool {
+	params fido_client.ClientActionRequestParams) (bool, int) {
 	rp := params.RelyingParty
 	if rp == "" {
 		rp = "<unknown-rp>"
@@ -128,7 +139,23 @@ func (p promptApprover) ApproveClientAction(
 	}
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
-		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
+		if p.alwaysApprove {
+			fmt.Printf("Auto-approved registration for %q\n", rp)
+			return true, 0
+		}
+		// Manual selection: Poll for approval signal file for 10 seconds
+		hasStopFile := false
+		if p.signalFile != "" {
+			for i := 0; i < 100; i++ { // 100 * 100ms = 10s
+				if _, err := os.Stat(p.signalFile); err == nil {
+					os.Remove(p.signalFile)
+					hasStopFile = true
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+		ok := hasStopFile || transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
 		if ok {
 			if p.alwaysApprove {
 				fmt.Printf("Auto-approved registration for %q\n", rp)
@@ -138,9 +165,51 @@ func (p promptApprover) ApproveClientAction(
 		} else {
 			fmt.Printf("Denied registration for %q\n", rp)
 		}
-		return ok
+		return ok, 0
 	case fido_client.ClientActionFIDOGetAssertion:
-		ok := p.alwaysApprove || transport.Prompt(
+		if len(params.Options) > 1 {
+			if p.autoSelect {
+				fmt.Printf("Auto-selected first identity for %q: %q\n", rp, params.Options[0])
+				return true, 0
+			}
+			fmt.Printf("Multiple identities found for %q:\n", rp)
+			for i, opt := range params.Options {
+				fmt.Printf("[%d] %s\n", i, opt)
+			}
+			for {
+				pStr := transport.PromptString(fmt.Sprintf("Select identity (0-%d) icon or 'n' to deny: ", len(params.Options)-1))
+				if strings.ToLower(pStr) == "n" {
+					fmt.Printf("Denied identity selection for %q\n", rp)
+					return false, 0
+				}
+				idx, err := strconv.Atoi(pStr)
+				if err == nil && idx >= 0 && idx < len(params.Options) {
+					fmt.Printf("Selected identity for %q: %q\n", rp, params.Options[idx])
+					return true, idx
+				}
+				fmt.Println("Invalid selection. Please try again.")
+			}
+		}
+
+		if p.alwaysApprove {
+			fmt.Printf("Auto-approved login for %q user %q\n", rp, user)
+			return true, 0
+		}
+
+		// Manual selection: Poll for approval signal file for 10 seconds
+		hasStopFile := false
+		if p.signalFile != "" {
+			for i := 0; i < 100; i++ { // 100 * 100ms = 10s
+				if _, err := os.Stat(p.signalFile); err == nil {
+					os.Remove(p.signalFile)
+					hasStopFile = true
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+
+		ok := hasStopFile || transport.Prompt(
 			fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user),
 		)
 		if ok {
@@ -152,7 +221,7 @@ func (p promptApprover) ApproveClientAction(
 		} else {
 			fmt.Printf("Denied login for %q user %q\n", rp, user)
 		}
-		return ok
+		return ok, 0
 	case fido_client.ClientActionU2FRegister:
 		ok := p.alwaysApprove || transport.Prompt("Approve U2F registration (Y/n)?")
 		if ok {
@@ -164,7 +233,7 @@ func (p promptApprover) ApproveClientAction(
 		} else {
 			fmt.Println("Denied U2F registration")
 		}
-		return ok
+		return ok, 0
 	case fido_client.ClientActionU2FAuthenticate:
 		ok := p.alwaysApprove || transport.Prompt("Approve U2F authentication (Y/n)?")
 		if ok {
@@ -176,20 +245,9 @@ func (p promptApprover) ApproveClientAction(
 		} else {
 			fmt.Println("Denied U2F authentication")
 		}
-		return ok
-	default:
-		ok := p.alwaysApprove || transport.Prompt(fmt.Sprintf("Approve action %d (Y/n)?", action))
-		if ok {
-			if p.alwaysApprove {
-				fmt.Printf("Auto-approved action %d\n", action)
-			} else {
-				fmt.Printf("Approved action %d\n", action)
-			}
-		} else {
-			fmt.Printf("Denied action %d\n", action)
-		}
-		return ok
+		return ok, 0
 	}
+	return false, 0
 }
 
 func onlineOnlyCmd() *cobra.Command {

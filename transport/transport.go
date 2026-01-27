@@ -27,6 +27,17 @@ func Prompt(prompt string) bool {
 	return response == "" || response == "y" || response == "yes"
 }
 
+func PromptString(prompt string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("%s ", prompt)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Could not read user input: %s - %s\n", response, err)
+		return ""
+	}
+	return strings.TrimSpace(response)
+}
+
 // Mode chooses which transport to use.
 type Mode string
 

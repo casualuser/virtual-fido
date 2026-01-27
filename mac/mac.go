@@ -19,7 +19,7 @@ var ctapHIDServer *ctap_hid.CTAPHIDServer
 
 func handleResponse(response []byte) {
 	if len(response) > 0 {
-		//macLogger.Printf("Sending Bytes: %#v\n\n", response)
+		macLogger.Printf("Sending Bytes: %#v\n\n", response)
 		C.send_data(C.CBytes(response), C.int(len(response)))
 	}
 }
@@ -27,7 +27,7 @@ func handleResponse(response []byte) {
 //export receiveDataCallback
 func receiveDataCallback(dataPointer unsafe.Pointer, length C.int) {
 	data := C.GoBytes(dataPointer, length)
-	//macLogger.Printf("Received Bytes: %d %#v\n\n", length, data)
+	macLogger.Printf("Received Bytes: %d %#v\n\n", length, data)
 	ctapHIDServer.HandleMessage(data)
 }
 

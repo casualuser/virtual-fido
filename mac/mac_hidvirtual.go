@@ -4,6 +4,7 @@ package mac
 
 import (
 	"fmt"
+	"os"
 	"unsafe"
 
 	"github.com/bulwarkid/virtual-fido/ctap_hid"
@@ -28,7 +29,8 @@ var virtualDevice C.hid_virtual_device_t
 
 func handleResponse(response []byte) {
 	if len(response) > 0 {
-		fmt.Printf("Sending %d bytes response to HID device\n", len(response))
+		fmt.Printf("DEBUG: Sending %d bytes response to HID device: %x\n", len(response), response)
+		os.Stdout.Sync()
 		C.hid_virtual_device_send_report(
 			virtualDevice,
 			(*C.uint8_t)(unsafe.Pointer(&response[0])),
@@ -40,6 +42,8 @@ func handleResponse(response []byte) {
 //export HIDReceiveReport
 func HIDReceiveReport(dataPointer *C.uint8_t, length C.size_t) {
 	data := C.GoBytes(unsafe.Pointer(dataPointer), C.int(length))
+	fmt.Printf("DEBUG: Received %d bytes report: %x\n", int(length), data)
+	os.Stdout.Sync()
 	hidLogger.Printf("Received %d bytes report: %x", int(length), data)
 	ctapHIDServer.HandleMessage(data)
 }
