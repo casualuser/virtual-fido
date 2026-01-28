@@ -42,7 +42,7 @@ def main():
         args.binary, "run",
         "--device-name", "HHhhh",
         "--seed-file", seed_path,
-        "--auto-approve",
+        "--always-approve",
         "--auto-select"
     ]
 
