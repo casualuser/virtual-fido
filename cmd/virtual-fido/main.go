@@ -89,11 +89,7 @@ func runCmd() *cobra.Command {
 				fmt.Print(cs.String())
 				counters = cs
 			}
-			approver := promptApprover{
-				alwaysApprove: alwaysApprove,
-				autoSelect:    autoSelect,
-				signalFile:    signalFile,
-			}
+			approver := newPromptApprover(alwaysApprove, autoSelect, signalFile, true)
 			cl := client.New(seedBytes, counters, approver)
 			mode := transport.Mode(transportFlag)
 			if mode == "" {
@@ -124,9 +120,74 @@ type promptApprover struct {
 	alwaysApprove bool
 	autoSelect    bool
 	signalFile    string
+	signalChan    chan string
 }
 
-func (p promptApprover) ApproveClientAction(
+func newPromptApprover(alwaysApprove, autoSelect bool, signalFile string, readStdin bool) *promptApprover {
+	p := &promptApprover{
+		alwaysApprove: alwaysApprove,
+		autoSelect:    autoSelect,
+		signalFile:    signalFile,
+		signalChan:    make(chan string, 10),
+	}
+	if readStdin {
+		go p.runSignaling()
+	}
+	return p
+}
+
+func (p *promptApprover) FeedSignal(sig string) {
+	select {
+	case p.signalChan <- strings.ToLower(strings.TrimSpace(sig)):
+	default:
+		// Channel full, drop or log?
+	}
+}
+
+func (p *promptApprover) runSignaling() {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		if line == "" {
+			continue
+		}
+		p.signalChan <- line
+	}
+}
+
+func (p *promptApprover) waitApproval(timeout time.Duration) bool {
+	if p.alwaysApprove {
+		return true
+	}
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case sig := <-p.signalChan:
+			if sig == "touch" || sig == "approve" || sig == "y" || sig == "yes" || sig == "" {
+				return true
+			}
+			if sig == "n" || sig == "no" || sig == "deny" {
+				return false
+			}
+		case <-ticker.C:
+			if p.signalFile != "" {
+				if _, err := os.Stat(p.signalFile); err == nil {
+					os.Remove(p.signalFile)
+					return true
+				}
+			}
+		case <-timer.C:
+			return false
+		}
+	}
+}
+
+func (p *promptApprover) ApproveClientAction(
 	action fido_client.ClientAction,
 	params fido_client.ClientActionRequestParams) (bool, int) {
 	rp := params.RelyingParty
@@ -139,29 +200,10 @@ func (p promptApprover) ApproveClientAction(
 	}
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
-		if p.alwaysApprove {
-			fmt.Printf("Auto-approved registration for %q\n", rp)
-			return true, 0
-		}
-		// Manual selection: Poll for approval signal file for 10 seconds
-		hasStopFile := false
-		if p.signalFile != "" {
-			for i := 0; i < 100; i++ { // 100 * 100ms = 10s
-				if _, err := os.Stat(p.signalFile); err == nil {
-					os.Remove(p.signalFile)
-					hasStopFile = true
-					break
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-		ok := hasStopFile || transport.Prompt(fmt.Sprintf("Approve registration for %q (Y/n)?", rp))
+		fmt.Printf("Approval Required: Register for %q. Type 'touch' or 'y' to approve.\n", rp)
+		ok := p.waitApproval(15 * time.Second)
 		if ok {
-			if p.alwaysApprove {
-				fmt.Printf("Auto-approved registration for %q\n", rp)
-			} else {
-				fmt.Printf("Approved registration for %q\n", rp)
-			}
+			fmt.Printf("Approved registration for %q\n", rp)
 		} else {
 			fmt.Printf("Denied registration for %q\n", rp)
 		}
@@ -176,75 +218,42 @@ func (p promptApprover) ApproveClientAction(
 			for i, opt := range params.Options {
 				fmt.Printf("[%d] %s\n", i, opt)
 			}
+			fmt.Println("Select identity index (0-N) or 'n' to deny:")
 			for {
-				pStr := transport.PromptString(fmt.Sprintf("Select identity (0-%d) icon or 'n' to deny: ", len(params.Options)-1))
-				if strings.ToLower(pStr) == "n" {
-					fmt.Printf("Denied identity selection for %q\n", rp)
+				select {
+				case sig := <-p.signalChan:
+					if strings.ToLower(sig) == "n" {
+						fmt.Printf("Denied identity selection for %q\n", rp)
+						return false, 0
+					}
+					idx, err := strconv.Atoi(sig)
+					if err == nil && idx >= 0 && idx < len(params.Options) {
+						fmt.Printf("Selected identity for %q: %q\n", rp, params.Options[idx])
+						return true, idx
+					}
+					fmt.Println("Invalid selection. Please try again.")
+				case <-time.After(15 * time.Second):
+					fmt.Printf("Timeout waiting for identity selection for %q\n", rp)
 					return false, 0
 				}
-				idx, err := strconv.Atoi(pStr)
-				if err == nil && idx >= 0 && idx < len(params.Options) {
-					fmt.Printf("Selected identity for %q: %q\n", rp, params.Options[idx])
-					return true, idx
-				}
-				fmt.Println("Invalid selection. Please try again.")
 			}
 		}
 
-		if p.alwaysApprove {
-			fmt.Printf("Auto-approved login for %q user %q\n", rp, user)
-			return true, 0
-		}
-
-		// Manual selection: Poll for approval signal file for 10 seconds
-		hasStopFile := false
-		if p.signalFile != "" {
-			for i := 0; i < 100; i++ { // 100 * 100ms = 10s
-				if _, err := os.Stat(p.signalFile); err == nil {
-					os.Remove(p.signalFile)
-					hasStopFile = true
-					break
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-
-		ok := hasStopFile || transport.Prompt(
-			fmt.Sprintf("Approve login for %q user %q (Y/n)?", rp, user),
-		)
+		fmt.Printf("Approval Required: Login for %q user %q. Type 'touch' or 'y' to approve.\n", rp, user)
+		ok := p.waitApproval(15 * time.Second)
 		if ok {
-			if p.alwaysApprove {
-				fmt.Printf("Auto-approved login for %q user %q\n", rp, user)
-			} else {
-				fmt.Printf("Approved login for %q user %q\n", rp, user)
-			}
+			fmt.Printf("Approved login for %q user %q\n", rp, user)
 		} else {
 			fmt.Printf("Denied login for %q user %q\n", rp, user)
 		}
 		return ok, 0
 	case fido_client.ClientActionU2FRegister:
-		ok := p.alwaysApprove || transport.Prompt("Approve U2F registration (Y/n)?")
-		if ok {
-			if p.alwaysApprove {
-				fmt.Println("Auto-approved U2F registration")
-			} else {
-				fmt.Println("Approved U2F registration")
-			}
-		} else {
-			fmt.Println("Denied U2F registration")
-		}
+		fmt.Println("Approval Required: U2F registration. Type 'touch' or 'y' to approve.")
+		ok := p.waitApproval(15 * time.Second)
 		return ok, 0
 	case fido_client.ClientActionU2FAuthenticate:
-		ok := p.alwaysApprove || transport.Prompt("Approve U2F authentication (Y/n)?")
-		if ok {
-			if p.alwaysApprove {
-				fmt.Println("Auto-approved U2F authentication")
-			} else {
-				fmt.Println("Approved U2F authentication")
-			}
-		} else {
-			fmt.Println("Denied U2F authentication")
-		}
+		fmt.Println("Approval Required: U2F authentication. Type 'touch' or 'y' to approve.")
+		ok := p.waitApproval(15 * time.Second)
 		return ok, 0
 	}
 	return false, 0
@@ -551,7 +560,7 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		fmt.Print(cs.String())
 		counters = cs
 	}
-	approver := promptApprover{alwaysApprove: autoApprove}
+	approver := newPromptApprover(autoApprove, false, "", false)
 	cl := client.New(seedBytes, counters, approver)
 
 	ctapServer := ctap.NewCTAPServer(cl)
@@ -563,7 +572,7 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		line := scanner.Text()
 		req, err := airgap.DecodeHIDRequest(line)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "decode request: %v\n", err)
+			approver.FeedSignal(line)
 			continue
 		}
 		if req.Op != "" || req.RPID != "" {

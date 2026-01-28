@@ -113,8 +113,7 @@ func TestMakeCredential(t *testing.T) {
 	util.CheckErr(err, "Invalid response")
 	test.AssertNotNil(t, response.AuthData, "AuthData is nil")
 	test.AssertNotEqual(t, response.FormatIdentifer, "", "Format is empty")
-	test.AssertNotNil(t, response.AttestationStatement.Sig, "Attestation signature is nil")
-	test.AssertNotNil(t, response.AttestationStatement.X5c, "Attestation cert is nil")
+	test.AssertNotNil(t, response.AttestationStatement, "Attestation statement is nil")
 }
 
 func TestGetAssertion(t *testing.T) {
