@@ -128,6 +128,7 @@ Automatic registration verified on Yubico technical demo page.
 
 ##### 3. WebAuthn.io (Online) - ⚠️ TIMEOUT
 Reaches WebAuthn ceremony but times out (VM environment issue).
+**Verified with System Google Chrome:** Reproduced timeout with identical behavior. Console logs show standard request parameters (`attestation: none`), suggesting a VM-specific transport quirk with this site.
 ![WebAuthn.io E2E Video](/Users/proto/Projects/_proj/virtual-fido/docs/e2e_mac_suite/media/webauthn_io/video.webm)
 
 ````carousel

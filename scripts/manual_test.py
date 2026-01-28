@@ -17,7 +17,12 @@ def test_site(site, username, headless=False):
     print(f"{'='*60}\n")
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        # Use system Chrome (likely has the Antigravity plugin or specific config)
+        browser = p.chromium.launch(
+            headless=headless,
+            channel="chrome",  # Uses installed Google Chrome
+            args=["--enable-logging", "--v=1"] # Enable verbose logging
+        )
         context = browser.new_context(record_video_dir="videos/")
         page = context.new_page()
         
