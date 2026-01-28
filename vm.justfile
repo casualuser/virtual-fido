@@ -3,7 +3,7 @@ set shell := ["bash", "-c"]
 
 # Path validation
 PROJECT_DIR := shell("pwd")
-PYTHON := "/Users/amo/.pyenv/versions/3.12.12/bin/python3.12"
+PYTHON := "python3"
 
 # install python dependencies
 deps:
@@ -12,9 +12,11 @@ deps:
 
 # --- DKIT FLOW (DriverKit) ---
 
+# --- DKIT FLOW (DriverKit) ---
+
 dkit_cleanup:
     echo "Cleaning up DKIT..."
-    sudo pkill -9 -f "virtual-fido-dkit" || true
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A pkill -9 -f "virtual-fido-dkit" || true; else sudo pkill -9 -f "virtual-fido-dkit" || true; fi
 
 dkit_test: dkit_cleanup deps dkit_verify
 
@@ -25,23 +27,23 @@ dkit_verify:
 
 dkit_insert args="":
     @echo "Inserting Virtual FIDO Key (DKIT)..."
-    sudo pkill -9 -f "virtual-fido-dkit" || true
-    sudo rm -f /tmp/virtual-fido-dkit.log
-    echo "--- DKIT LOG START: $(date) ---" | sudo tee /tmp/virtual-fido-dkit.log > /dev/null
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A pkill -9 -f "virtual-fido-dkit" || true; else sudo pkill -9 -f "virtual-fido-dkit" || true; fi
+    if [ -n "$SUDO_PASSWORD" ]; then SUDO_ASKPASS=/tmp/ask.py sudo -A rm -f /tmp/virtual-fido-dkit.log; else sudo rm -f /tmp/virtual-fido-dkit.log; fi
+    echo "--- DKIT LOG START: $(date) ---" | (if [ -n "$SUDO_PASSWORD" ]; then SUDO_ASKPASS=/tmp/ask.py sudo -A tee /tmp/virtual-fido-dkit.log > /dev/null; else sudo tee /tmp/virtual-fido-dkit.log > /dev/null; fi)
     chmod +x {{PROJECT_DIR}}/virtual-fido-dkit
     [ -f /tmp/seed ] || (head -c 32 /dev/urandom | xxd -p | tr -d '\n' > /tmp/seed)
-    cd {{PROJECT_DIR}} && sudo bash -c "nohup ./virtual-fido-dkit run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_dkit {{args}} >> /tmp/virtual-fido-dkit.log 2>&1 &"
+    cd {{PROJECT_DIR}} && (if [ -n "$SUDO_PASSWORD" ]; then SUDO_ASKPASS=/tmp/ask.py sudo -A bash -c "nohup ./virtual-fido-dkit run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_dkit {{args}} >> /tmp/virtual-fido-dkit.log 2>&1 &"; else sudo bash -c "nohup ./virtual-fido-dkit run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_dkit {{args}} >> /tmp/virtual-fido-dkit.log 2>&1 &"; fi)
     @echo "DKIT Key inserted. Logs at /tmp/virtual-fido-dkit.log"
 
 dkit_auto:
     just -f vm.justfile dkit_insert "--always-approve --auto-select"
 
 dkit_activate:
-    sudo touch /tmp/fido_approve_dkit
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A touch /tmp/fido_approve_dkit; else sudo touch /tmp/fido_approve_dkit; fi
     @echo "Sent DKIT activation signal."
 
 dkit_remove:
-    sudo pkill -9 -f "virtual-fido-dkit" || true
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A pkill -9 -f "virtual-fido-dkit" || true; else sudo pkill -9 -f "virtual-fido-dkit" || true; fi
 
 dkit_logs:
     tail -f /tmp/virtual-fido-dkit.log
@@ -50,7 +52,7 @@ dkit_logs:
 
 vhid_cleanup:
     echo "Cleaning up VHID..."
-    sudo pkill -9 -f "virtual-fido-vhid" || true
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A pkill -9 -f "virtual-fido-vhid" || true; else sudo pkill -9 -f "virtual-fido-vhid" || true; fi
 
 vhid_test: vhid_cleanup deps vhid_verify
 
@@ -61,23 +63,23 @@ vhid_verify:
 
 vhid_insert args="":
     @echo "Inserting Virtual FIDO Key (VHID)..."
-    sudo pkill -9 -f "virtual-fido-vhid" || true
-    sudo rm -f /tmp/virtual-fido-vhid.log
-    echo "--- VHID LOG START: $(date) ---" | sudo tee /tmp/virtual-fido-vhid.log > /dev/null
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A pkill -9 -f "virtual-fido-vhid" || true; else sudo pkill -9 -f "virtual-fido-vhid" || true; fi
+    if [ -n "$SUDO_PASSWORD" ]; then SUDO_ASKPASS=/tmp/ask.py sudo -A rm -f /tmp/virtual-fido-vhid.log; else sudo rm -f /tmp/virtual-fido-vhid.log; fi
+    echo "--- VHID LOG START: $(date) ---" | (if [ -n "$SUDO_PASSWORD" ]; then SUDO_ASKPASS=/tmp/ask.py sudo -A tee /tmp/virtual-fido-vhid.log > /dev/null; else sudo tee /tmp/virtual-fido-vhid.log > /dev/null; fi)
     chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
     [ -f /tmp/seed ] || (head -c 32 /dev/urandom | xxd -p | tr -d '\n' > /tmp/seed)
-    cd {{PROJECT_DIR}} && sudo bash -c "nohup ./virtual-fido-vhid run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_vhid {{args}} >> /tmp/virtual-fido-vhid.log 2>&1 &"
+    cd {{PROJECT_DIR}} && (if [ -n "$SUDO_PASSWORD" ]; then SUDO_ASKPASS=/tmp/ask.py sudo -A bash -c "nohup ./virtual-fido-vhid run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_vhid {{args}} >> /tmp/virtual-fido-vhid.log 2>&1 &"; else sudo bash -c "nohup ./virtual-fido-vhid run --seed-file /tmp/seed --transport darwin --signal-file /tmp/fido_approve_vhid {{args}} >> /tmp/virtual-fido-vhid.log 2>&1 &"; fi)
     @echo "VHID Key inserted. Logs at /tmp/virtual-fido-vhid.log"
 
 vhid_auto:
     just -f vm.justfile vhid_insert "--always-approve --auto-select"
 
 vhid_activate:
-    sudo touch /tmp/fido_approve_vhid
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A touch /tmp/fido_approve_vhid; else sudo touch /tmp/fido_approve_vhid; fi
     @echo "Sent VHID activation signal."
 
 vhid_remove:
-    sudo pkill -9 -f "virtual-fido-vhid" || true
+    if [ -n "$SUDO_PASSWORD" ]; then python3 -c "import os; open('/tmp/ask.py', 'w').write('#!/usr/bin/env python3\nprint(' + repr(os.environ['SUDO_PASSWORD']) + ')\n')" && chmod +x /tmp/ask.py && SUDO_ASKPASS=/tmp/ask.py sudo -A pkill -9 -f "virtual-fido-vhid" || true; else sudo pkill -9 -f "virtual-fido-vhid" || true; fi
 
 vhid_logs:
     tail -f /tmp/virtual-fido-vhid.log

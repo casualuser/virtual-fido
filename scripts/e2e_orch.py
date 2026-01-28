@@ -23,11 +23,31 @@ def main():
     args = parser.parse_args()
 
     print(f"Starting E2E Test with binary: {args.binary}")
+    
+    sudo_pass = os.environ.get("SUDO_PASSWORD", "")
+    if not sudo_pass:
+        print("WARNING: SUDO_PASSWORD not set. Sudo commands may fail.")
+
+    askpass_path = "/tmp/fido_askpass.py"
+    with open(askpass_path, "w") as f:
+        f.write("#!/usr/bin/env python3\n")
+        f.write(f"print({repr(sudo_pass)})\n")
+    os.chmod(askpass_path, 0o755)
+    
+    os.environ["SUDO_ASKPASS"] = askpass_path
+    os.environ["DISPLAY"] = ":0"
+
+    def run_sudo(cmd_args):
+        full_cmd = ["sudo", "-A"] + cmd_args
+        p = subprocess.run(full_cmd, capture_output=True, text=True)
+        if p.returncode != 0:
+            print(f"Sudo Error ({cmd_args}): {p.stderr}")
+        return p.returncode
 
     # 0. Cleanup existing processes
     binary_name = os.path.basename(args.binary)
     print(f"Cleanup: Killing existing {binary_name} processes...")
-    subprocess.run(["sudo", "killall", binary_name], stderr=subprocess.DEVNULL)
+    run_sudo(["killall", binary_name])
     time.sleep(1)
 
     # 1. Start Virtual FIDO
@@ -38,11 +58,11 @@ def main():
 
     # We use 'run' command with natural flow flags for automated testing
     cmd = [
-        "sudo",
+        "sudo", "-A",
         args.binary, "run",
         "--device-name", "HHhhh",
         "--seed-file", seed_path,
-        "--auto-approve",
+        "--always-approve",
         "--auto-select"
     ]
 
@@ -74,7 +94,7 @@ def main():
     # --- 2. Run Playwright Test ---
     print("Starting Playwright Test...")
     pw_cmd = [
-        "/Users/amo/.pyenv/versions/3.12.12/bin/python3.12", "-u", "test/playwright_fido.py"
+        "python3", "-u", "test/playwright_fido.py"
     ]
     
     pw_proc = subprocess.Popen(
@@ -93,7 +113,7 @@ def main():
     print("Test Finished. Cleaning up...")
     
     # --- 3. Cleanup ---
-    subprocess.run(["sudo", "kill", str(vf_proc.pid)])
+    run_sudo(["kill", str(vf_proc.pid)])
     try:
         vf_proc.terminate()
     except:

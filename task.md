@@ -14,10 +14,14 @@
     - [x] Refactor `promptApprover` for stream-based signaling (Full/Relay/Vault support)
     - [ ] Verify Full Mode for macOS/Linux
     - [ ] Verify Online/Offline cross-platform flows (macOS <-> Linux)
-- [ ] Task 3: (POSTPONED) PureGo Migration
-    - [ ] Map `CoreHID` and `libobjc` symbols with `purego`
-    - [ ] Re-implement `VirtualFIDODevice` logic in Go
-- [x] Task 4: Verification and Test Matrix
+- [x] Task 3: PureGo Migration (ACTIVE)
+    - [x] Add `purego` dependency and scaffolding
+    - [x] Implement `libobjc` and `CoreHID` bindings in Go
+    - [x] Port `VirtualFIDODevice.swift` logic (pacing/padding) to Go
+    - [x] Implement Obj-C `HIDVirtualDeviceDelegate` via `purego` callbacks
+    - [x] Verify functionality without Swift/CGo
+- [/] Task 4: Verification and Test Matrix
     - [x] Create a comprehensive test matrix for full mode, `online-only`, and `offline-only`
+    - [ ] Expand matrix for Cross-Platform (macOS <-> Linux) combinations
     - [x] Convert `run_headless_test.sh` to Python
     - [x] Verify basic integration with `runOnlineDarwin`

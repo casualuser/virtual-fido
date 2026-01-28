@@ -99,6 +99,8 @@ func runCmd() *cobra.Command {
 			if deviceName == "" {
 				deviceName = "Virtual FIDO"
 			}
+			util.SetLogOutput(os.Stdout)
+			util.SetLogLevel(util.LogLevelTrace)
 			transport.Start(mode, cl, deviceName)
 			return nil
 		},

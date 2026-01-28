@@ -26,16 +26,16 @@ dkit_build:
     codesign --force --sign - --team-id YWN2K8NKBD -i id.bulwark.virtual-fido --entitlements transport/dkit/entitlements.plist virtual-fido-dkit
 
 dkit_test: dkit_build sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile dkit_test"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile dkit_test"
 
 dkit_auto: sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile dkit_auto"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile dkit_auto"
 
 dkit_insert args="": sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile dkit_insert \"{{args}}\""
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile dkit_insert \"{{args}}\""
 
 dkit_activate:
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile dkit_activate"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile dkit_activate"
 
 dkit_logs:
     ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile dkit_logs"
@@ -49,19 +49,20 @@ vhid_build: vhid_build_lib
     codesign --force --sign - --entitlements transport/vhid/entitlements.plist virtual-fido-vhid
 
 vhid_build_lib:
-    bash transport/vhid/HIDVirtualDevice/build.sh
+    # No-op if purego migration complete, otherwise use script
+    [ -f transport/vhid/HIDVirtualDevice/build.sh ] && bash transport/vhid/HIDVirtualDevice/build.sh || true
 
 vhid_test: vhid_build sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_test"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile vhid_test"
 
 vhid_auto: sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_auto"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile vhid_auto"
 
 vhid_insert args="": sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_insert \"{{args}}\""
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile vhid_insert \"{{args}}\""
 
 vhid_activate:
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_activate"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile vhid_activate"
 
 vhid_logs:
     ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_logs"
@@ -70,13 +71,13 @@ vhid_logs:
 build: dkit_build vhid_build
 remove: dkit_remove vhid_remove
 dkit_remove:
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile dkit_remove"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile dkit_remove"
 vhid_remove:
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_remove"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile vhid_remove"
 
 # --- Driver Management ---
 reinstall-dkit: sync
-    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile reinstall"
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; export SUDO_PASSWORD='$SUDO_PASSWORD'; cd {{VM_PROJECT}} && just -f vm.justfile reinstall"
 
 # Default
 default: build

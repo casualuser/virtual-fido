@@ -30,3 +30,17 @@ This matrix defines the required test scenarios for each operational mode of `vi
 ### 4. Signaling Interface (Automation)
 - **Execution**: `echo "touch" | ./virtual-fido run --always-approve`
 - **Expected**: Pending requests are auto-approved via the stream command.
+
+### 5. Cross-Platform: macOS Relay -> Linux Vault
+- **Setup**: 
+    - macOS: `./virtual-fido online-only --transport darwin`
+    - Linux: `./virtual-fido offline-only`
+- **Action**: Copy hex request from macOS, paste to Linux. Copy hex response from Linux, paste to macOS.
+- **Expected**: WebAuthn flow completes successfully on macOS browser.
+
+### 6. Cross-Platform: Linux Relay -> macOS Vault
+- **Setup**:
+    - Linux: `./virtual-fido online-only --transport uhid`
+    - macOS: `./virtual-fido offline-only`
+- **Action**: Copy hex request from Linux, paste to macOS. Copy hex response from macOS, paste to Linux.
+- **Expected**: WebAuthn flow completes successfully on Linux browser.
