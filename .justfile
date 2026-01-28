@@ -17,6 +17,9 @@ sync:
         --exclude='transport/dkit/USBDriver/build-installer' \
         --exclude='transport/dkit/USBDriver/build-lib' \
         . {{VM_USER}}@{{VM_HOST}}:{{VM_PROJECT}}/
+# Pull videos/screenshots from VM
+pull_videos:
+    rsync -avz {{VM_USER}}@{{VM_HOST}}:{{VM_PROJECT}}/videos/ videos/
 
 # --- DKIT FLOW (DriverKit) ---
 
@@ -65,6 +68,9 @@ vhid_activate:
 
 vhid_logs:
     ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_logs"
+
+vhid_suite args="": vhid_build sync
+    ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile vhid_suite \"{{args}}\""
 
 # Generic commands
 build: dkit_build vhid_build

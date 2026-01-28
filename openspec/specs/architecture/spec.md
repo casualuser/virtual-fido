@@ -3,7 +3,7 @@
 ## Requirements
 
 ### Requirement: Cross-platform HID Emulation
-The system SHALL provide a way to emulate HID reports across Linux and macOS.
+The system SHALL provide a way to emulate HID reports across Linux and macOS, adhering to the [Detailed HID Transport Spec](../transport/hid.md).
 
 #### Scenario: Linux UHID Initialization
 - **WHEN** running on Linux

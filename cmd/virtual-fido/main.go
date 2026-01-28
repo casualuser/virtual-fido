@@ -67,6 +67,7 @@ func runCmd() *cobra.Command {
 	var alwaysApprove bool
 	var autoSelect bool
 	var signalFile string
+	var deferredStart bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run virtual authenticator (seed-based)",
@@ -99,6 +100,14 @@ func runCmd() *cobra.Command {
 			if deviceName == "" {
 				deviceName = "Virtual FIDO"
 			}
+			if deferredStart {
+				fmt.Println("Waiting for 'insert' command via stdin...")
+				for sig := range approver.signalChan {
+					if sig == "insert" {
+						break
+					}
+				}
+			}
 			transport.Start(mode, cl, deviceName)
 			return nil
 		},
@@ -113,6 +122,7 @@ func runCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&alwaysApprove, "always-approve", false, "Always approve FIDO requests")
 	cmd.Flags().BoolVar(&autoSelect, "auto-select", false, "Auto-select first identity if multiple are found")
 	cmd.Flags().StringVar(&signalFile, "signal-file", "", "Path to the approval signal file")
+	cmd.Flags().BoolVar(&deferredStart, "deferred-start", false, "Wait for 'insert' command before starting transport")
 	return cmd
 }
 
@@ -201,7 +211,7 @@ func (p *promptApprover) ApproveClientAction(
 	switch action {
 	case fido_client.ClientActionFIDOMakeCredential:
 		fmt.Printf("Approval Required: Register for %q. Type 'touch' or 'y' to approve.\n", rp)
-		ok := p.waitApproval(15 * time.Second)
+		ok := p.waitApproval(30 * time.Second)
 		if ok {
 			fmt.Printf("Approved registration for %q\n", rp)
 		} else {
@@ -240,7 +250,7 @@ func (p *promptApprover) ApproveClientAction(
 		}
 
 		fmt.Printf("Approval Required: Login for %q user %q. Type 'touch' or 'y' to approve.\n", rp, user)
-		ok := p.waitApproval(15 * time.Second)
+		ok := p.waitApproval(30 * time.Second)
 		if ok {
 			fmt.Printf("Approved login for %q user %q\n", rp, user)
 		} else {
@@ -249,11 +259,11 @@ func (p *promptApprover) ApproveClientAction(
 		return ok, 0
 	case fido_client.ClientActionU2FRegister:
 		fmt.Println("Approval Required: U2F registration. Type 'touch' or 'y' to approve.")
-		ok := p.waitApproval(15 * time.Second)
+		ok := p.waitApproval(30 * time.Second)
 		return ok, 0
 	case fido_client.ClientActionU2FAuthenticate:
 		fmt.Println("Approval Required: U2F authentication. Type 'touch' or 'y' to approve.")
-		ok := p.waitApproval(15 * time.Second)
+		ok := p.waitApproval(30 * time.Second)
 		return ok, 0
 	}
 	return false, 0

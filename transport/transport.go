@@ -12,6 +12,7 @@ import (
 	"time"
 
 	virtual_fido "github.com/bulwarkid/virtual-fido"
+	"github.com/bulwarkid/virtual-fido/transport/vhid"
 )
 
 // Prompt asks the user on stdin with default yes on empty.
@@ -119,5 +120,14 @@ func runUhidServer(client virtual_fido.FIDOClient, deviceName string) {
 
 	if err := virtual_fido.StartUHID(ctx, client, deviceName); err != nil {
 		fmt.Printf("UHID error: %v\n", err)
+	}
+}
+
+func Stop(mode Mode) {
+	switch mode {
+	case ModeDarwin:
+		vhid.Stop()
+	default:
+		// Other transports might not support soft stop yet or rely on SIGINT
 	}
 }

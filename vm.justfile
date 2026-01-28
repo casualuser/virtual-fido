@@ -82,6 +82,27 @@ vhid_remove:
 vhid_logs:
     tail -f /tmp/virtual-fido-vhid.log
 
+vhid_suite args="": vhid_cleanup deps
+    chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
+    echo "Running Full VHID E2E Suite..."
+    cd {{PROJECT_DIR}} && {{PYTHON}} -u scripts/e2e_suite.py --binary ./virtual-fido-vhid {{args}}
+
+# Manual E2E testing with visible browser (for debugging)
+vhid_test_local_visible: vhid_cleanup deps
+    chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
+    echo "Testing Local (Offline) with visible browser..."
+    cd {{PROJECT_DIR}} && bash scripts/test_online.sh local
+
+vhid_test_webauthn_visible: vhid_cleanup deps
+    chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
+    echo "Testing WebAuthn.io with visible browser..."
+    cd {{PROJECT_DIR}} && bash scripts/test_online.sh webauthn.io
+
+vhid_test_yubico_visible: vhid_cleanup deps
+    chmod +x {{PROJECT_DIR}}/virtual-fido-vhid
+    echo "Testing Yubico with visible browser..."
+    cd {{PROJECT_DIR}} && bash scripts/test_online.sh yubico
+
 # Legacy/Default alias (default to dkit for now)
 insert args="": (dkit_insert args)
 remove: dkit_remove
