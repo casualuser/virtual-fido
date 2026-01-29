@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/hex"
 	"math/big"
 
 	"github.com/bulwarkid/virtual-fido/cose"
@@ -50,7 +49,7 @@ func New(seed []byte, counters CounterState, approver Approver) *SeedClient {
 
 // --- CTAP client methods ---
 
-func (c *SeedClient) SupportsResidentKey() bool { return false }
+func (c *SeedClient) SupportsResidentKey() bool { return true }
 func (c *SeedClient) SupportsPIN() bool         { return false }
 
 func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialParams, excludeList []webauthn.PublicKeyCredentialDescriptor, rp *webauthn.PublicKeyCredentialRPEntity, user *webauthn.PublicKeyCrendentialUserEntity) *identities.CredentialSource {
@@ -86,13 +85,17 @@ func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialPa
 }
 
 func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.PublicKeyCredentialDescriptor) *identities.CredentialSource {
+	var credID []byte
 	if len(allowList) == 0 {
-		return nil
+		// Determine deterministic credential ID for resident keys
+		// For now, we assume a default user ID if none provided
+		userID := []byte("default-user")
+		credID = deriveCredID(c.seed, rpID, userID)
+	} else {
+		credID = allowList[0].ID
 	}
-	credID := allowList[0].ID
 	priv := deriveKey(c.seed, credID)
 	current, _ := c.counters.CredValue(credID)
-	userName := hex.EncodeToString(credID)
 	cs := identities.CredentialSource{
 		Type:       "public-key",
 		ID:         credID,
@@ -102,9 +105,9 @@ func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.Public
 			Name: rpID,
 		},
 		User: &webauthn.PublicKeyCrendentialUserEntity{
-			ID:          []byte{},
-			Name:        userName,
-			DisplayName: userName,
+			ID:          []byte("default-user"),
+			Name:        "Default User",
+			DisplayName: "Default User",
 		},
 		SignatureCounter: int32(current),
 	}

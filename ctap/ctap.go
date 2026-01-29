@@ -31,6 +31,7 @@ const (
 	ctapCommandClientPIN        ctapCommand = 0x06
 	ctapCommandReset            ctapCommand = 0x07
 	ctapCommandGetNextAssertion ctapCommand = 0x08
+	ctapCommandCredentialMgmt   ctapCommand = 0x0b
 )
 
 var ctapCommandDescriptions = map[ctapCommand]string{
@@ -40,6 +41,7 @@ var ctapCommandDescriptions = map[ctapCommand]string{
 	ctapCommandClientPIN:        "ctapCommandClientPIN",
 	ctapCommandReset:            "ctapCommandReset",
 	ctapCommandGetNextAssertion: "ctapCommandGetNextAssertion",
+	ctapCommandCredentialMgmt:   "ctapCommandCredentialMgmt",
 }
 
 type ctapStatusCode byte
@@ -113,7 +115,8 @@ func (server *CTAPServer) HandleMessage(data []byte) []byte {
 	case ctapCommandClientPIN:
 		return server.handleClientPIN(data[1:])
 	default:
-		panic(fmt.Sprintf("Invalid CTAP Command: %d", command))
+		ctapLogger.Printf("ERROR: Invalid/Unsupported CTAP Command: %d\n", command)
+		return []byte{byte(ctap1ErrInvalidCommand)}
 	}
 }
 
@@ -236,7 +239,7 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
 		return []byte{byte(ctap2ErrOperationDenied)}
 	}
-	flags = flags | authDataFlagUserPresent
+	flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
 
 	credentialSource := server.client.NewCredentialSource(args.PubKeyCredParams, args.ExcludeList, args.RP, args.User)
 	if credentialSource == nil {
@@ -276,7 +279,7 @@ type getInfoResponse struct {
 
 func (server *CTAPServer) handleGetInfo() []byte {
 	response := getInfoResponse{
-		Versions: []string{"FIDO_2_0", "U2F_V2"},
+		Versions: []string{"FIDO_2_0", "FIDO_2_1", "U2F_V2"},
 		AAGUID:   DefaultAAGUID,
 		Options: getInfoOptions{
 			IsPlatform:          false,
@@ -353,7 +356,7 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 			ctapLogger.Printf("ERROR: Unapproved action (Account login)")
 			return []byte{byte(ctap2ErrOperationDenied)}
 		}
-		flags = flags | authDataFlagUserPresent
+		flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
 	}
 
 	newCount := server.client.BumpSignatureCounter(credentialSource)

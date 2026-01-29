@@ -25,8 +25,7 @@ case "$SITE" in
         ;;
 
     *)
-        echo "Usage: $0 [local|webauthn.io|yubico]"
-        exit 1
+        URL="$SITE"
         ;;
 esac
 
