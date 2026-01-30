@@ -27,6 +27,17 @@ All cryptographic keys MUST be derived from a single 32-byte master seed.
 - **WHEN** the same 32-byte seed is loaded
 - **THEN** the system SHALL derive the same credential keys.
 
+### Requirement: FIDO 2.1 Compliance
+The system SHALL implement the FIDO 2.1 (CTAP 2.1) protocol as the baseline for modern WebAuthn operations.
+
+#### Scenario: User Verification (UV)
+- **WHEN** a FIDO operation is approved by the user
+- **THEN** the system SHALL set the `User Verified` (UV) bit in the authenticator data.
+
+#### Scenario: Discoverable Credentials (Resident Keys)
+- **WHEN** a `makeCredential` request specifies `residentKey: required` or `preferred`
+- **THEN** the system SHALL provide support for discoverable credentials, allowing stateless recovery via the 32-byte seed even when no `allowList` is provided in `getAssertion`.
+
 ### Requirement: User Approval for FIDO Operations
 Operations that change state or perform authentication MUST require user approval.
 

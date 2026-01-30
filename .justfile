@@ -84,5 +84,32 @@ vhid_remove:
 reinstall-dkit: sync
     ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile reinstall"
 
+# --- Nix Build ---
+
+# Build generic virtual-fido using Nix (cross-platform, CGO-free)
+nix_build:
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && \
+    nix build . --accept-flake-config --extra-experimental-features "nix-command flakes"
+
+# Build macOS native virtual-fido-vhid using Nix (requires apple-sdk_15)
+nix_build_vhid:
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && \
+    nix build .#virtual-fido-vhid --accept-flake-config --extra-experimental-features "nix-command flakes"
+
+# Enter Nix development shell
+nix_shell:
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && \
+    nix develop --accept-flake-config --extra-experimental-features "nix-command flakes"
+
+# --- Docker Build ---
+
+# Build Docker image with debian-slim base
+docker_build:
+    docker build -t virtual-fido:latest .
+
+# Run Docker container (help command)
+docker_run:
+    docker run --rm virtual-fido:latest --help
+
 # Default
 default: build

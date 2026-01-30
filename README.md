@@ -2,13 +2,15 @@
 
 > Also check out [Bulwark Passkey](https://bulwark.id), a passkey manager based on VirtualFIDO that is currently in beta!
 
-Virtual FIDO is a virtual USB device that implements the FIDO2/U2F protocol (like a YubiKey) to support 2FA and WebAuthN. Please note that this software is still in beta and under active development, so APIs may be subject to change.
+Virtual FIDO is a virtual USB device that implements the FIDO 2.1 (CTAP 2.1) and U2F (CTAP 1.0) protocols (like a YubiKey) to support passkeys, 2FA, and WebAuthn. Please note that this software is still in beta and under active development.
 
 ## Features
 
 -   Support for both Windows and Linux through USB/IP (Mac support coming later)
 -   Pure Go UHID transport on Linux (no usbip dependency)
--   Connect using both U2F and FIDO2 protocols for both normal 2FA and WebAuthN
+-   Native macOS support via CoreHID (macOS 15+)
+-   Full FIDO 2.1 compliance (Resident Keys, User Verification)
+-   Connect using both U2F and FIDO 2.1 protocols for both normal 2FA and WebAuthn
 -   Store credentials in an encrypted format with a passphrase
 -   Store credential data anywhere (example provided: a local file)
 -   Generic approval mechanism for credential creation and login (example provided: terminal-based)

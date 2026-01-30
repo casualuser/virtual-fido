@@ -22,6 +22,7 @@ var unsafeCtapLogger = util.NewLogger("[CTAP] ", util.LogLevelUnsafe)
 // DefaultAAGUID is the built-in authenticator AAGUID.
 var DefaultAAGUID = [16]byte{117, 108, 90, 245, 236, 166, 1, 163, 47, 198, 211, 12, 226, 242, 1, 197}
 
+// ctapCommand represents a CTAP 2.1 command code.
 type ctapCommand uint8
 
 const (
@@ -104,7 +105,7 @@ func NewCTAPServer(client CTAPClient) *CTAPServer {
 
 func (server *CTAPServer) HandleMessage(data []byte) []byte {
 	command := ctapCommand(data[0])
-	ctapLogger.Printf("CTAP COMMAND: %s\n\n", ctapCommandDescriptions[command])
+	ctapLogger.Printf("CTAP 2.1 COMMAND: %s\n\n", ctapCommandDescriptions[command])
 	switch command {
 	case ctapCommandMakeCredential:
 		return server.handleMakeCredential(data[1:])

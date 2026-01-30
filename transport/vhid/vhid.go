@@ -1,4 +1,4 @@
-//go:build darwin && hidvirtual
+//go:build darwin && hidvirtual && cgo
 
 package vhid
 

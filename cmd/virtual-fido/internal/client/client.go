@@ -49,6 +49,7 @@ func New(seed []byte, counters CounterState, approver Approver) *SeedClient {
 
 // --- CTAP client methods ---
 
+// SupportsResidentKey reports support for Discoverable Credentials (Resident Keys).
 func (c *SeedClient) SupportsResidentKey() bool { return true }
 func (c *SeedClient) SupportsPIN() bool         { return false }
 
@@ -87,7 +88,7 @@ func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialPa
 func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.PublicKeyCredentialDescriptor) *identities.CredentialSource {
 	var credID []byte
 	if len(allowList) == 0 {
-		// Determine deterministic credential ID for resident keys
+		// Determine deterministic credential ID for Discoverable Credentials (Resident Keys)
 		// For now, we assume a default user ID if none provided
 		userID := []byte("default-user")
 		credID = deriveCredID(c.seed, rpID, userID)

@@ -68,9 +68,20 @@ Verified registration success on WebAuthn.io with the updated FIDO 2.1 device.
 
 ## How to Build with Nix
 ```bash
-# Build the project
-nix build .#virtual-fido-vhid
+# Build the project (cross-platform USB/IP version)
+nix build .
 
-# Enter development environment
-nix develop
+# Build the macOS native version (Virtual HID)
+## How to### Build and Distribution
+The project is built and packaged using:
+1. **Nix**: Provides reproducible builds and development environments.
+   - `nix build .`: Builds the generic, cross-platform USB/IP version (CGO-free).
+   - `nix build .#virtual-fido-vhid`: Builds the macOS-native Virtual HID version (requires Xcode/SDK).
+2. **Docker**: A `debian-slim` based image for Linux/Service deployment.
+   - `docker build -t virtual-fido .`
+ for lightweight deployment.
+
+```bash
+docker build -t virtual-fido .
+docker run --rm virtual-fido --help
 ```

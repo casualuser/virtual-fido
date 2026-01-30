@@ -6,7 +6,7 @@
 ## Tech Stack
 - **Primary**: Go (Golang)
 - **Secondary**: Swift (currently being migrated to Go via `purego`), C, Objective-C
-- **Protocols**: FIDO2 (CTAP2), U2F (CTAP1)
+- **Protocols**: FIDO 2.1 (CTAP 2.1), U2F (CTAP 1.0)
 - **HID Drivers**: UHID (Linux), DriverKit/CoreHID (macOS), USB-over-IP (Cross-platform)
 
 ## Project Conventions
