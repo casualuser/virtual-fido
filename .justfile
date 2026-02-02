@@ -84,50 +84,5 @@ vhid_remove:
 reinstall-dkit: sync
     ssh {{VM_USER}}@{{VM_HOST}} "export PATH=/opt/homebrew/bin:\$PATH; cd {{VM_PROJECT}} && just -f vm.justfile reinstall"
 
-# --- Nix Build ---
-
-# Build generic virtual-fido using Nix (cross-platform, CGO-free)
-nix_build:
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && \
-    nix build . --accept-flake-config --extra-experimental-features "nix-command flakes"
-
-# Build macOS native virtual-fido-vhid using Nix (requires apple-sdk_15)
-nix_build_vhid:
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && \
-    nix build .#virtual-fido-vhid --accept-flake-config --extra-experimental-features "nix-command flakes"
-
-# Enter Nix development shell
-nix_shell:
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && \
-    nix develop --accept-flake-config --extra-experimental-features "nix-command flakes"
-
-# --- Docker Build ---
-
-# Build Docker image with debian-slim base
-docker_build:
-    docker build -t virtual-fido:latest .
-
-# Run Docker container (help command)
-docker_run:
-    docker run --rm virtual-fido:latest --help
-
-# --- Docker E2E Tests ---
-
-# Run Docker E2E test with local test server
-docker_e2e: docker_build
-    python3 scripts/docker_e2e_test.py --site http://localhost:8000 --auto-approve --auto-select
-
-# Run Docker E2E test with webauthn.io
-docker_e2e_webauthn: docker_build
-    python3 scripts/docker_e2e_test.py --site https://webauthn.io --auto-approve --auto-select
-
-# Run Docker E2E test with custom site
-docker_e2e_custom site: docker_build
-    python3 scripts/docker_e2e_test.py --site {{site}} --auto-approve --auto-select
-
-# Start local test server
-test_server:
-    python3 test/server.py
-
 # Default
 default: build
