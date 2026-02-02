@@ -1,4 +1,4 @@
-//go:build !darwin || !cgo
+//go:build !darwin || !cgo || !hidvirtual
 
 package vhid
 
@@ -9,4 +9,4 @@ import (
 )
 
 func Start(server *ctap_hid.CTAPHIDServer) {}
-func Stop() {}
+func Stop()                                {}
