@@ -75,8 +75,8 @@ nix build .
 ## How to### Build and Distribution
 The project is built and packaged using:
 1. **Nix**: Provides reproducible builds and development environments.
-   - `nix build .`: Builds the generic, cross-platform USB/IP version (CGO-free).
-   - `nix build .#virtual-fido-vhid`: Builds the macOS-native Virtual HID version (requires Xcode/SDK).
+   - `nix build .`: Builds the generic, cross-platform USB/IP version (CGO-free). **Works on macOS host** but requires USB/IP client for browser integration.
+   - `nix build .#virtual-fido-vhid`: **Recommended for macOS host**. Builds the macOS-native Virtual HID version which integrates directly with host browsers.
 2. **Docker**: A `debian-slim` based image for Linux/Service deployment.
    - `docker build -t virtual-fido .`
  for lightweight deployment.

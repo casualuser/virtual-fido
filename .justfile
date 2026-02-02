@@ -111,5 +111,23 @@ docker_build:
 docker_run:
     docker run --rm virtual-fido:latest --help
 
+# --- Docker E2E Tests ---
+
+# Run Docker E2E test with local test server
+docker_e2e: docker_build
+    python3 scripts/docker_e2e_test.py --site http://localhost:8000 --auto-approve --auto-select
+
+# Run Docker E2E test with webauthn.io
+docker_e2e_webauthn: docker_build
+    python3 scripts/docker_e2e_test.py --site https://webauthn.io --auto-approve --auto-select
+
+# Run Docker E2E test with custom site
+docker_e2e_custom site: docker_build
+    python3 scripts/docker_e2e_test.py --site {{site}} --auto-approve --auto-select
+
+# Start local test server
+test_server:
+    python3 test/server.py
+
 # Default
 default: build
