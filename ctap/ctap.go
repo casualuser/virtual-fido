@@ -19,8 +19,10 @@ import (
 var ctapLogger = util.NewLogger("[CTAP] ", util.LogLevelDebug)
 var unsafeCtapLogger = util.NewLogger("[CTAP] ", util.LogLevelUnsafe)
 
-var aaguid = [16]byte{117, 108, 90, 245, 236, 166, 1, 163, 47, 198, 211, 12, 226, 242, 1, 197}
+// DefaultAAGUID is the built-in authenticator AAGUID.
+var DefaultAAGUID = [16]byte{117, 108, 90, 245, 236, 166, 1, 163, 47, 198, 211, 12, 226, 242, 1, 197}
 
+// ctapCommand represents a CTAP 2.1 command code.
 type ctapCommand uint8
 
 const (
@@ -30,6 +32,7 @@ const (
 	ctapCommandClientPIN        ctapCommand = 0x06
 	ctapCommandReset            ctapCommand = 0x07
 	ctapCommandGetNextAssertion ctapCommand = 0x08
+	ctapCommandCredentialMgmt   ctapCommand = 0x0b
 )
 
 var ctapCommandDescriptions = map[ctapCommand]string{
@@ -39,6 +42,7 @@ var ctapCommandDescriptions = map[ctapCommand]string{
 	ctapCommandClientPIN:        "ctapCommandClientPIN",
 	ctapCommandReset:            "ctapCommandReset",
 	ctapCommandGetNextAssertion: "ctapCommandGetNextAssertion",
+	ctapCommandCredentialMgmt:   "ctapCommandCredentialMgmt",
 }
 
 type ctapStatusCode byte
@@ -152,38 +156,34 @@ type basicAttestationStatement struct {
 
 func makeAttestedCredentialData(credentialSource *identities.CredentialSource) []byte {
 	encodedCredentialPublicKey := cose.MarshalCOSEPublicKey(credentialSource.PrivateKey.Public())
-	return util.Concat(aaguid[:], util.ToBE(uint16(len(credentialSource.ID))), credentialSource.ID, encodedCredentialPublicKey)
+	return util.Concat(DefaultAAGUID[:], util.ToBE(uint16(len(credentialSource.ID))), credentialSource.ID, encodedCredentialPublicKey)
 }
 
 func makeAuthData(rpID string, credentialSource *identities.CredentialSource, attestedCredentialData []byte, flags authDataFlags) []byte {
-	if attestedCredentialData != nil {
-		flags = flags | authDataFlagAttestedDataIncluded
-	} else {
-		attestedCredentialData = []byte{}
-	}
-	rpIdHash := sha256.Sum256([]byte(rpID))
-	return util.Concat(rpIdHash[:], []byte{uint8(flags)}, util.ToBE(credentialSource.SignatureCounter), attestedCredentialData)
+	return MakeAuthData(rpID, credentialSource, attestedCredentialData, byte(flags))
 }
 
-type makeCredentialOptions struct {
+// MakeCredentialOptions represents the CTAP makeCredential options.
+type MakeCredentialOptions struct {
 	ResidentKey      bool  `cbor:"rk,omitempty"`
 	UserVerification bool  `cbor:"uv,omitempty"`
 	UserPresence     *bool `cbor:"up,omitempty"`
 }
 
-type makeCredentialArgs struct {
+// MakeCredentialArgs represents the CBOR payload for makeCredential.
+type MakeCredentialArgs struct {
 	ClientDataHash    []byte                                   `cbor:"1,keyasint,omitempty"`
 	RP                *webauthn.PublicKeyCredentialRPEntity    `cbor:"2,keyasint,omitempty"`
 	User              *webauthn.PublicKeyCrendentialUserEntity `cbor:"3,keyasint,omitempty"`
 	PubKeyCredParams  []webauthn.PublicKeyCredentialParams     `cbor:"4,keyasint,omitempty"`
 	ExcludeList       []webauthn.PublicKeyCredentialDescriptor `cbor:"5,keyasint,omitempty"`
 	Extensions        map[string]interface{}                   `cbor:"6,keyasint,omitempty"`
-	Options           *makeCredentialOptions                   `cbor:"7,keyasint,omitempty"`
+	Options           *MakeCredentialOptions                   `cbor:"7,keyasint,omitempty"`
 	PINUVAuthParam    []byte                                   `cbor:"8,keyasint,omitempty"`
 	PINUVAuthProtocol uint32                                   `cbor:"9,keyasint,omitempty"`
 }
 
-func (args makeCredentialArgs) String() string {
+func (args MakeCredentialArgs) String() string {
 	return fmt.Sprintf("ctapMakeCredentialArgs{ ClientDataHash: 0x%s, Relying Party: %s, User: %s, PublicKeyCredentialParams: %#v, ExcludeList: %#v, Extensions: %#v, Options: %#v, PinAuth: %#v, PinProtocol: %d }",
 		hex.EncodeToString(args.ClientDataHash),
 		args.RP,
@@ -197,14 +197,15 @@ func (args makeCredentialArgs) String() string {
 	)
 }
 
-type makeCredentialResponse struct {
-	FormatIdentifer      string                    `cbor:"1,keyasint"`
-	AuthData             []byte                    `cbor:"2,keyasint"`
-	AttestationStatement basicAttestationStatement `cbor:"3,keyasint"`
+// MakeCredentialResponse is the CTAP makeCredential reply.
+type MakeCredentialResponse struct {
+	FormatIdentifer      string      `cbor:"1,keyasint"`
+	AuthData             []byte      `cbor:"2,keyasint"`
+	AttestationStatement interface{} `cbor:"3,keyasint"`
 }
 
 func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
-	var args makeCredentialArgs
+	var args MakeCredentialArgs
 	err := cbor.Unmarshal(data, &args)
 	util.CheckErr(err, fmt.Sprintf("Could not decode CBOR for MAKE_CREDENTIAL: %s %v", err, data))
 	ctapLogger.Printf("MAKE CREDENTIAL: %s\n\n", args)
@@ -239,39 +240,33 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
 		return []byte{byte(ctap2ErrOperationDenied)}
 	}
-	flags = flags | authDataFlagUserPresent
+	flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
 
 	credentialSource := server.client.NewCredentialSource(args.PubKeyCredParams, args.ExcludeList, args.RP, args.User)
 	if credentialSource == nil {
 		ctapLogger.Printf("ERROR: Unsupported Algorithm\n\n")
 		return []byte{byte(ctap2ErrUnsupportedAlgorithm)}
 	}
-	attestedCredentialData := makeAttestedCredentialData(credentialSource)
-	authenticatorData := makeAuthData(args.RP.ID, credentialSource, attestedCredentialData, flags)
+	attestedCredentialData := MakeAttestedCredentialData(credentialSource)
+	authenticatorData := MakeAuthData(args.RP.ID, credentialSource, attestedCredentialData, byte(flags))
 
-	attestationCert := server.client.CreateAttestationCertificiate(credentialSource.PrivateKey)
-	attestationSignature := credentialSource.PrivateKey.Sign(append(authenticatorData, args.ClientDataHash...))
-	attestationStatement := basicAttestationStatement{
-		Alg: cose.COSE_ALGORITHM_ID_ES256,
-		Sig: attestationSignature,
-		X5c: [][]byte{attestationCert},
-	}
-
-	response := makeCredentialResponse{
+	// We use "none" attestation here because this is a virtual authenticator
+	// and does not have a hardware-backed attestation key.
+	response := MakeCredentialResponse{
 		AuthData:             authenticatorData,
-		FormatIdentifer:      "packed",
-		AttestationStatement: attestationStatement,
+		FormatIdentifer:      "none",
+		AttestationStatement: map[string]interface{}{},
 	}
 	ctapLogger.Printf("MAKE CREDENTIAL RESPONSE: %#v\n\n", response)
 	return append([]byte{byte(ctap1ErrSuccess)}, util.MarshalCBOR(response)...)
 }
 
 type getInfoOptions struct {
-	IsPlatform      bool  `cbor:"plat"`
-	CanResidentKey  bool  `cbor:"rk"`
-	HasClientPIN    *bool `cbor:"clientPin,omitempty"`
-	CanUserPresence bool  `cbor:"up"`
-	// CanUserVerification bool  `cbor:"uv"`
+	IsPlatform          bool  `cbor:"plat"`
+	CanResidentKey      bool  `cbor:"rk"`
+	HasClientPIN        *bool `cbor:"clientPin,omitempty"`
+	CanUserPresence     bool  `cbor:"up"`
+	CanUserVerification bool  `cbor:"uv"`
 }
 
 type getInfoResponse struct {
@@ -285,13 +280,13 @@ type getInfoResponse struct {
 
 func (server *CTAPServer) handleGetInfo() []byte {
 	response := getInfoResponse{
-		Versions: []string{"FIDO_2_0", "U2F_V2"},
-		AAGUID:   aaguid,
+		Versions: []string{"FIDO_2_0", "FIDO_2_1", "U2F_V2"},
+		AAGUID:   DefaultAAGUID,
 		Options: getInfoOptions{
-			IsPlatform:      false,
-			CanResidentKey:  server.client.SupportsResidentKey(),
-			CanUserPresence: true,
-			// CanUserVerification: true,
+			IsPlatform:          false,
+			CanResidentKey:      server.client.SupportsResidentKey(),
+			CanUserPresence:     true,
+			CanUserVerification: true,
 		},
 	}
 	if server.client.SupportsPIN() {
@@ -303,16 +298,18 @@ func (server *CTAPServer) handleGetInfo() []byte {
 	return append([]byte{byte(ctap1ErrSuccess)}, util.MarshalCBOR(response)...)
 }
 
-type getAssertionOptions struct {
+// GetAssertionOptions represents CTAP getAssertion options.
+type GetAssertionOptions struct {
 	UserVerification bool  `cbor:"uv,omitempty"`
 	UserPresence     *bool `cbor:"up,omitempty"`
 }
 
-type getAssertionArgs struct {
+// GetAssertionArgs represents the CTAP getAssertion request payload.
+type GetAssertionArgs struct {
 	RPID              string                                   `cbor:"1,keyasint"`
 	ClientDataHash    []byte                                   `cbor:"2,keyasint"`
 	AllowList         []webauthn.PublicKeyCredentialDescriptor `cbor:"3,keyasint"`
-	Options           getAssertionOptions                      `cbor:"5,keyasint"`
+	Options           GetAssertionOptions                      `cbor:"5,keyasint"`
 	PINUVAuthParam    []byte                                   `cbor:"6,keyasint,omitempty"`
 	PINUVAuthProtocol uint32                                   `cbor:"7,keyasint,omitempty"`
 }
@@ -327,7 +324,7 @@ type getAssertionResponse struct {
 
 func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 	var flags authDataFlags = 0
-	var args getAssertionArgs
+	var args GetAssertionArgs
 	err := cbor.Unmarshal(data, &args)
 	if err != nil {
 		ctapLogger.Printf("ERROR: %s", err)
@@ -360,11 +357,11 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 			ctapLogger.Printf("ERROR: Unapproved action (Account login)")
 			return []byte{byte(ctap2ErrOperationDenied)}
 		}
-		flags = flags | authDataFlagUserPresent
+		flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
 	}
+
 	newCount := server.client.BumpSignatureCounter(credentialSource)
 	credentialSource.SignatureCounter = newCount
-
 	authData := makeAuthData(args.RPID, credentialSource, nil, flags)
 	signature := credentialSource.PrivateKey.Sign(util.Concat(authData, args.ClientDataHash))
 
