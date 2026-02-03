@@ -99,7 +99,7 @@ func NewCTAPServer(client CTAPClient) *CTAPServer {
 
 func (server *CTAPServer) HandleMessage(data []byte) []byte {
 	command := ctapCommand(data[0])
-	ctapLogger.Printf("CTAP COMMAND: %s\n\n", ctapCommandDescriptions[command])
+	ctapLogger.Printf("CTAP 2.1 COMMAND: %s\n\n", ctapCommandDescriptions[command])
 	switch command {
 	case ctapCommandMakeCredential:
 		return server.handleMakeCredential(data[1:])
@@ -110,7 +110,8 @@ func (server *CTAPServer) HandleMessage(data []byte) []byte {
 	case ctapCommandClientPIN:
 		return server.handleClientPIN(data[1:])
 	default:
-		panic(fmt.Sprintf("Invalid CTAP Command: %d", command))
+		ctapLogger.Printf("ERROR: Invalid/Unsupported CTAP Command: %d\n", command)
+		return []byte{byte(ctap1ErrInvalidCommand)}
 	}
 }
 
