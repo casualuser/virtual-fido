@@ -183,5 +183,5 @@ func TestClientPIN_Basic(t *testing.T) {
 	respBytes = server.handleClientPIN(util.MarshalCBOR(args))
 	test.AssertEqual(t, ctapStatusCode(respBytes[0]), ctap1ErrSuccess, "Expected success")
 	cbor.Unmarshal(respBytes[1:], &resp)
-	test.AssertNotNil(t, resp.KeyAgreement, "Expected key agreement")
+	test.Assert(t, resp.KeyAgreement != nil, "Expected key agreement")
 }
