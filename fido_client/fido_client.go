@@ -17,6 +17,7 @@ type ClientAction uint8
 type ClientActionRequestParams struct {
 	RelyingParty string
 	UserName     string
+	Options      []string // For selecting from multiple identities
 }
 
 const (
@@ -122,7 +123,10 @@ func (client *DefaultFIDOClient) BumpSignatureCounter(credentialSource *identiti
 	return credentialSource.SignatureCounter
 }
 
-func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty string) bool {
+func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty, rpID string) bool {
+	if relyingParty == "" {
+		relyingParty = rpID
+	}
 	params := ClientActionRequestParams{
 		RelyingParty: relyingParty,
 	}

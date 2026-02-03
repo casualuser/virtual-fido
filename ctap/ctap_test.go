@@ -63,7 +63,7 @@ func (client *dummyCTAPClient) PINToken() []byte {
 	return nil
 }
 
-func (client *dummyCTAPClient) ApproveAccountCreation(relyingParty string) bool {
+func (client *dummyCTAPClient) ApproveAccountCreation(relyingParty, rpID string) bool {
 	return true
 }
 func (client *dummyCTAPClient) ApproveAccountLogin(credentialSource *identities.CredentialSource) bool {
