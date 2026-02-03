@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleShortVersionString</key>
+	<string>10.0</string>
+	<key>CFBundleVersion</key>
+	<string>100</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>USBDriver</key>
@@ -12,12 +16,8 @@
 			<string>com.apple.kpi.iokit</string>
 			<key>IOClass</key>
 			<string>IOUserService</string>
-			<key>IOMatchCategory</key>
-			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOProviderClass</key>
 			<string>IOUserResources</string>
-			<key>IOResourceMatch</key>
-			<string>IOKit</string>
 			<key>IOUserClass</key>
 			<string>USBDriver</string>
 			<key>IOUserServerName</key>
@@ -36,6 +36,10 @@
 				<key>IOUserClass</key>
 				<string>USBUserClient</string>
 			</dict>
+			<key>IOUserClientAllowedEntitlements</key>
+			<array>
+				<string>com.apple.developer.driverkit.user-client-access</string>
+			</array>
 		</dict>
 	</dict>
 </dict>

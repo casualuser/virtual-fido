@@ -1,11 +1,11 @@
-//go:build darwin
+//go:build darwin && !hidvirtual
 
 package virtual_fido
 
 import (
 	"github.com/bulwarkid/virtual-fido/ctap"
 	"github.com/bulwarkid/virtual-fido/ctap_hid"
-	dkit "github.com/bulwarkid/virtual-fido/mac"
+	"github.com/bulwarkid/virtual-fido/transport/dkit"
 	"github.com/bulwarkid/virtual-fido/u2f"
 )
 
