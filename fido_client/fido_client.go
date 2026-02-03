@@ -113,9 +113,13 @@ func (client *DefaultFIDOClient) GetAssertionSource(relyingPartyID string, allow
 
 	// TODO: Allow user to choose credential source
 	credentialSource := sources[0]
+	return credentialSource
+}
+
+func (client *DefaultFIDOClient) BumpSignatureCounter(credentialSource *identities.CredentialSource) int32 {
 	credentialSource.SignatureCounter++
 	client.saveData()
-	return credentialSource
+	return credentialSource.SignatureCounter
 }
 
 func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty string) bool {

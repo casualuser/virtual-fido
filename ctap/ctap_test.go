@@ -40,6 +40,10 @@ func (client *dummyCTAPClient) GetAssertionSource(
 		return nil
 	}
 }
+func (client *dummyCTAPClient) BumpSignatureCounter(cs *identities.CredentialSource) int32 {
+	cs.SignatureCounter++
+	return cs.SignatureCounter
+}
 func (client *dummyCTAPClient) CreateAttestationCertificiate(privateKey *cose.SupportedCOSEPrivateKey) []byte {
 	return nil
 }
