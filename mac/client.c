@@ -19,3 +19,7 @@ void start_device(void) {
     device = usb_driver_init_device(receive_data);
     usb_driver_start(device);
 }
+
+void stop_device(void) {
+    usb_driver_stop(device);
+}

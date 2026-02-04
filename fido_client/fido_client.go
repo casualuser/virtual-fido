@@ -17,6 +17,7 @@ type ClientAction uint8
 type ClientActionRequestParams struct {
 	RelyingParty string
 	UserName     string
+	Options      []string // For selecting from multiple identities
 }
 
 const (
@@ -113,12 +114,19 @@ func (client *DefaultFIDOClient) GetAssertionSource(relyingPartyID string, allow
 
 	// TODO: Allow user to choose credential source
 	credentialSource := sources[0]
-	credentialSource.SignatureCounter++
-	client.saveData()
 	return credentialSource
 }
 
-func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty string) bool {
+func (client *DefaultFIDOClient) BumpSignatureCounter(credentialSource *identities.CredentialSource) int32 {
+	credentialSource.SignatureCounter++
+	client.saveData()
+	return credentialSource.SignatureCounter
+}
+
+func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty, rpID string) bool {
+	if relyingParty == "" {
+		relyingParty = rpID
+	}
 	params := ClientActionRequestParams{
 		RelyingParty: relyingParty,
 	}
