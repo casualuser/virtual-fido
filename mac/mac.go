@@ -34,3 +34,7 @@ func Start(server *ctap_hid.CTAPHIDServer) {
 	ctapHIDServer = server
 	C.start_device()
 }
+
+func Stop() {
+	// wrapper for interface compliance
+}
