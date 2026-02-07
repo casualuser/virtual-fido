@@ -5,3 +5,4 @@ vault.data
 vault.json
 transport/dkit/output/
 transport/vhid/output/
+mac/build
