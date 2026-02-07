@@ -108,6 +108,8 @@ func runCmd() *cobra.Command {
 					}
 				}
 			}
+			util.SetLogOutput(os.Stdout)
+			util.SetLogLevel(util.LogLevelTrace)
 			transport.Start(mode, cl, deviceName)
 			return nil
 		},
