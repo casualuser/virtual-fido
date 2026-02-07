@@ -9,7 +9,11 @@ import Foundation
 import SystemExtensions
 import os.log
 
-class ContentViewModel: NSObject {
+class ContentViewModel: NSObject, ObservableObject {
+    @Published var showAlert = false
+    @Published var alertMessage: String?
+    var onCompletion: ((Bool) -> Void)?
+
     func activate() {
         let request = OSSystemExtensionRequest
             .activationRequest(forExtensionWithIdentifier: "id.bulwark.VirtualUSBDriver.driver",
@@ -36,9 +40,16 @@ extension ContentViewModel: OSSystemExtensionRequestDelegate {
     
     func request(_ request: OSSystemExtensionRequest, didFinishWithResult result: OSSystemExtensionRequest.Result) {
         os_log("didFinishWithResult: %d", result.rawValue);
+        self.alertMessage = "Operation completed successfully."
+        self.showAlert = true
+        onCompletion?(true)
     }
     
     func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
         os_log("didFailWithError: %@", error.localizedDescription);
+        print("LOG: didFailWithError: \(error.localizedDescription)")
+        self.alertMessage = "Operation failed: \(error.localizedDescription)"
+        self.showAlert = true
+        onCompletion?(false)
     }
 }
