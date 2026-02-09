@@ -58,6 +58,32 @@ func (c *CounterStore) SetCred(id []byte, v uint32) {
 	_ = c.store.Save(c.vault)
 }
 
+func (c *CounterStore) AddCredential(rpID string, userID, credID []byte) {
+	if c.vault == nil {
+		return
+	}
+	// Check if exists? For now, just append.
+	c.vault.Credentials = append(c.vault.Credentials, CredentialEntry{
+		RPID:   rpID,
+		UserID: append([]byte(nil), userID...), // Copy
+		CredID: append([]byte(nil), credID...), // Copy
+	})
+	_ = c.store.Save(c.vault)
+}
+
+func (c *CounterStore) GetCredentials(rpID string) []CredentialEntry {
+	if c.vault == nil {
+		return nil
+	}
+	var matches []CredentialEntry
+	for _, cred := range c.vault.Credentials {
+		if cred.RPID == rpID {
+			matches = append(matches, cred)
+		}
+	}
+	return matches
+}
+
 // IncrementGlobal increments the global authentication counter (U2F style).
 func (c *CounterStore) IncrementGlobal() uint32 {
 	if c.vault == nil {

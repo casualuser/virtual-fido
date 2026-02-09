@@ -27,12 +27,21 @@ type Vault struct {
 	Entries  []CounterEntry    `cbor:"1,keyasint,omitempty"`
 
 	AuthenticationCounter uint32 `cbor:"2,keyasint"`
+	// Credentials persistence for resident keys
+	Credentials []CredentialEntry `cbor:"3,keyasint,omitempty"`
 }
 
 // CounterEntry is the on-disk form of a counter, keeping raw bytes (no hex).
 type CounterEntry struct {
 	ID    []byte `cbor:"1,keyasint"`
 	Count uint32 `cbor:"2,keyasint"`
+}
+
+// CredentialEntry stores the mapping for discoverable credentials.
+type CredentialEntry struct {
+	RPID   string `cbor:"1,keyasint"`
+	UserID []byte `cbor:"2,keyasint"`
+	CredID []byte `cbor:"3,keyasint"`
 }
 
 // Store persists Vault as encrypted CBOR using a key derived from seed.
@@ -193,6 +202,21 @@ func (v *Vault) String() string {
 	if len(keys) == 0 {
 		b.WriteString("  (none)\n")
 	}
+
+	b.WriteString("Credentials:\n")
+	if len(v.Credentials) == 0 {
+		b.WriteString("  (none)\n")
+	}
+	for _, c := range v.Credentials {
+		b.WriteString("  ")
+		b.WriteString(c.RPID)
+		b.WriteString(" | User: ")
+		b.WriteString(hex.EncodeToString(c.UserID))
+		b.WriteString(" | Cred: ")
+		b.WriteString(hex.EncodeToString(c.CredID))
+		b.WriteByte('\n')
+	}
+
 	return b.String()
 }
 
