@@ -30,13 +30,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Version = "dev"
+
 func main() {
 	root := &cobra.Command{
-		Use:   "virtual-fido",
-		Short: "Seed-based virtual FIDO toolchain",
+		Use:     "virtual-fido",
+		Short:   "Seed-based virtual FIDO toolchain",
+		Version: Version,
 	}
 
-	root.AddCommand(genSeedCmd(), runCmd(), onlineOnlyCmd(), offlineOnlyCmd())
+	root.AddCommand(genSeedCmd(), runCmd(), onlineOnlyCmd(), offlineOnlyCmd(), versionCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -59,6 +62,16 @@ func genSeedCmd() *cobra.Command {
 	}
 }
 
+func versionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the version number",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("virtual-fido version %s\n", Version)
+		},
+	}
+}
+
 func runCmd() *cobra.Command {
 	var seedFile string
 	var countersPath string
@@ -72,6 +85,7 @@ func runCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Run virtual authenticator (seed-based)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("Virtual FIDO Client Version: %s\n", Version)
 			seedBytes, err := seed.Load(seedFile)
 			if err != nil {
 				return fmt.Errorf("load seed: %w", err)

@@ -13,7 +13,7 @@
 #include <DriverKit/IOBufferMemoryDescriptor.h>
 #include <HIDDriverKit/IOHIDDeviceTypes.h>
 
-class USBUserClient: IOUserClient {
+class USBUserClient: public IOUserClient {
 public:
     virtual bool init(void) override;
     virtual void free(void) override;
