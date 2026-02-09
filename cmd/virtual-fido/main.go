@@ -76,7 +76,7 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load seed: %w", err)
 			}
-			var counters client.CounterState
+			var counters client.State
 			if countersPath == "" {
 				fmt.Println("Using in-memory time-based counters")
 				counters = state.NewTimeBasedCounterStore(0, nil)
@@ -563,7 +563,7 @@ func runOfflineVault(seedFile, vaultPath string) error {
 	if err != nil {
 		return fmt.Errorf("load seed: %w", err)
 	}
-	var counters client.CounterState
+	var counters client.State
 	if vaultPath == "" {
 		fmt.Println("Using in-memory time-based counters")
 		counters = state.NewTimeBasedCounterStore(0, nil)

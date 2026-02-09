@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hmac"
@@ -8,6 +9,7 @@ import (
 	"crypto/x509"
 	"math/big"
 
+	"github.com/bulwarkid/virtual-fido/cmd/virtual-fido/internal/state"
 	"github.com/bulwarkid/virtual-fido/cose"
 	"github.com/bulwarkid/virtual-fido/crypto"
 	"github.com/bulwarkid/virtual-fido/ctap"
@@ -18,19 +20,16 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// CounterState persists counters; implemented via the state.CounterStore wrapper.
-type CounterState interface {
+// State persists counters and credentials.
+type State interface {
 	IncrementCred(id []byte) uint32
 	EnsureCred(id []byte)
 	CredValue(id []byte) (uint32, bool)
 	SetCred(id []byte, v uint32)
 	IncrementGlobal() uint32
-<<<<<<< HEAD
-=======
 	AddCredential(rpID string, userID, credID []byte)
 	GetCredentials(rpID string) []state.CredentialEntry
 	GetCredential(credID []byte) (state.CredentialEntry, bool)
->>>>>>> 3bf1679 (CTAP/HID: Fix Safari compatibility (Endianness + Keep-alives + Broad Versions))
 }
 
 // Approver proxies user prompts.
@@ -42,11 +41,11 @@ type Approver interface {
 // SeedClient implements CTAP/U2F clients using deterministic credentials derived from a seed.
 type SeedClient struct {
 	seed     []byte
-	counters CounterState
+	counters State
 	approver Approver
 }
 
-func New(seed []byte, counters CounterState, approver Approver) *SeedClient {
+func New(seed []byte, counters State, approver Approver) *SeedClient {
 	return &SeedClient{
 		seed:     append([]byte(nil), seed...),
 		counters: counters,
@@ -67,9 +66,6 @@ func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialPa
 	if rp.Name == "" {
 		rp = &webauthn.PublicKeyCredentialRPEntity{ID: rp.ID, Name: rp.ID}
 	}
-	if user.Name == "" {
-		user.Name = string(user.ID)
-	}
 	if user.DisplayName == "" {
 		user.DisplayName = user.Name
 	}
@@ -81,6 +77,7 @@ func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialPa
 	}
 	priv := deriveKey(c.seed, credID)
 	c.counters.EnsureCred(credID)
+	c.counters.AddCredential(rp.ID, user.ID, credID)
 	cs := identities.CredentialSource{
 		Type:             "public-key",
 		ID:               credID,
@@ -93,15 +90,66 @@ func (c *SeedClient) NewCredentialSource(params []webauthn.PublicKeyCredentialPa
 }
 
 func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.PublicKeyCredentialDescriptor) *identities.CredentialSource {
+	storedCreds := c.counters.GetCredentials(rpID)
+
+	var user *webauthn.PublicKeyCrendentialUserEntity
 	var credID []byte
-	if len(allowList) == 0 {
-		// Determine deterministic credential ID for Discoverable Credentials (Resident Keys)
-		// For now, we assume a default user ID if none provided
-		userID := []byte("default-user")
-		credID = deriveCredID(c.seed, rpID, userID)
-	} else {
-		credID = allowList[0].ID
+
+	// Strategy: Find a matching credential
+	found := false
+
+	// 1. Try to find a match in stored credentials
+	for _, stored := range storedCreds {
+		// If allowList is present, filter by it
+		if len(allowList) > 0 {
+			matchesAllowList := false
+			for _, allowed := range allowList {
+				if bytes.Equal(allowed.ID, stored.CredID) {
+					matchesAllowList = true
+					break
+				}
+			}
+			if !matchesAllowList {
+				continue
+			}
+		}
+
+		// Found a candidate (first one for now)
+		credID = stored.CredID
+		user = &webauthn.PublicKeyCrendentialUserEntity{
+			ID:          stored.UserID,
+			Name:        "Stored User", // We don't store names yet, could add to CredentialEntry or ignore
+			DisplayName: "Stored User",
+		}
+		found = true
+		break
 	}
+
+	// 2. Fallback for legacy/stateless credentials (only if allowList is provided)
+	if !found && len(allowList) > 0 {
+		// Try legacy derivation with "default-user"
+		// This supports existing tests and stateless flows
+		legacyUserID := []byte("default-user")
+		legacyCredID := deriveCredID(c.seed, rpID, legacyUserID)
+
+		for _, allowed := range allowList {
+			if bytes.Equal(allowed.ID, legacyCredID) {
+				credID = legacyCredID
+				user = &webauthn.PublicKeyCrendentialUserEntity{
+					ID:          legacyUserID,
+					Name:        "Default User",
+					DisplayName: "Default User",
+				}
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		return nil
+	}
+
 	priv := deriveKey(c.seed, credID)
 	current, _ := c.counters.CredValue(credID)
 	cs := identities.CredentialSource{
@@ -112,11 +160,7 @@ func (c *SeedClient) GetAssertionSource(rpID string, allowList []webauthn.Public
 			ID:   rpID,
 			Name: rpID,
 		},
-		User: &webauthn.PublicKeyCrendentialUserEntity{
-			ID:          []byte("default-user"),
-			Name:        "Default User",
-			DisplayName: "Default User",
-		},
+		User:             user,
 		SignatureCounter: int32(current),
 	}
 	return &cs

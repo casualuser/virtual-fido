@@ -36,6 +36,7 @@ type CounterEntry struct {
 	Count uint32 `cbor:"2,keyasint"`
 }
 
+// CredentialEntry stores the mapping for discoverable credentials.
 type CredentialEntry struct {
 	RPID   string `cbor:"1,keyasint"`
 	UserID []byte `cbor:"2,keyasint"`
@@ -200,6 +201,21 @@ func (v *Vault) String() string {
 	if len(keys) == 0 {
 		b.WriteString("  (none)\n")
 	}
+
+	b.WriteString("Credentials:\n")
+	if len(v.Credentials) == 0 {
+		b.WriteString("  (none)\n")
+	}
+	for _, c := range v.Credentials {
+		b.WriteString("  ")
+		b.WriteString(c.RPID)
+		b.WriteString(" | User: ")
+		b.WriteString(hex.EncodeToString(c.UserID))
+		b.WriteString(" | Cred: ")
+		b.WriteString(hex.EncodeToString(c.CredID))
+		b.WriteByte('\n')
+	}
+
 	return b.String()
 }
 

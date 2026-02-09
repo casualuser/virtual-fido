@@ -69,6 +69,9 @@ func (t *TimeBasedCounterStore) nextValue(last uint32) uint32 {
 	if candidate <= last {
 		candidate = last + 1
 	}
+	if candidate <= last {
+		candidate = last + 1
+	}
 	return candidate
 }
 

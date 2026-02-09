@@ -8,6 +8,8 @@
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>id.bulwark.VirtualUSBDriver.driver</string>
+			<key>CFBundleVersion</key>
+			<string>4</string>
 			<key>CFBundleIdentifierKernel</key>
 			<string>com.apple.kpi.iokit</string>
 			<key>IOClass</key>

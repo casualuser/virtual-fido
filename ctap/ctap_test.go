@@ -167,7 +167,7 @@ func TestGetInfo(t *testing.T) {
 	err := cbor.Unmarshal(responseBytes[1:], &response)
 	util.CheckErr(err, "Could not decode response")
 	test.AssertContains(t, response.Versions, "U2F_V2", "U2F not supported")
-	test.AssertContains(t, response.Versions, "FIDO_2_0", "FIDO2.0 not supported")
+	test.AssertContains(t, response.Versions, "FIDO_2_1", "FIDO_2_1 not supported")
 	test.Assert(t, !bytes.Equal(make([]byte, 16), response.AAGUID[:]), "AAGUID is empty")
 	test.Assert(t, response.Options.CanResidentKey, "Cant use resident keys")
 	test.Assert(t, !response.Options.IsPlatform, "Is not marked a non-platform auth")

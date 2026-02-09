@@ -253,8 +253,23 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		ctapLogger.Printf("ERROR: Unsupported Algorithm\n\n")
 		return []byte{byte(ctap2ErrUnsupportedAlgorithm)}
 	}
+
+	var extensionData []byte
+	if args.Extensions != nil {
+		if _, ok := args.Extensions["credProps"]; ok {
+			extMap := map[string]interface{}{
+				"credProps": map[string]bool{"rk": true},
+			}
+			extensionData = util.MarshalCBOR(extMap)
+			flags |= authDataFlagExtensionDataIncluded
+		}
+	}
+
 	attestedCredentialData := MakeAttestedCredentialData(credentialSource)
 	authenticatorData := MakeAuthData(args.RP.ID, credentialSource, attestedCredentialData, byte(flags))
+	if extensionData != nil {
+		authenticatorData = append(authenticatorData, extensionData...)
+	}
 
 	// We use "none" attestation here because this is a virtual authenticator
 	// and does not have a hardware-backed attestation key.
@@ -321,10 +336,10 @@ type GetAssertionArgs struct {
 }
 
 type getAssertionResponse struct {
-	Credential        *webauthn.PublicKeyCredentialDescriptor `cbor:"1,keyasint,omitempty"`
-	AuthenticatorData []byte                                  `cbor:"2,keyasint"`
-	Signature         []byte                                  `cbor:"3,keyasint"`
-	//User                *PublicKeyCrendentialUserEntity `cbor:"4,keyasint,omitempty"`
+	Credential        *webauthn.PublicKeyCredentialDescriptor  `cbor:"1,keyasint,omitempty"`
+	AuthenticatorData []byte                                   `cbor:"2,keyasint"`
+	Signature         []byte                                   `cbor:"3,keyasint"`
+	User              *webauthn.PublicKeyCrendentialUserEntity `cbor:"4,keyasint,omitempty"`
 	//NumberOfCredentials int32 `cbor:"5,keyasint"`
 }
 
@@ -379,7 +394,7 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 		Credential:        &credentialDescriptor,
 		AuthenticatorData: authData,
 		Signature:         signature,
-		//User:                credentialSource.User,
+		User:              credentialSource.User,
 		//NumberOfCredentials: 1,
 	}
 
