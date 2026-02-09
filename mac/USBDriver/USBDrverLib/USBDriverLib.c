@@ -9,6 +9,9 @@
 #include <IOKit/IOReturn.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/usb/USB.h>
+#include <mach/mach.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "USBDriverLib.h"
@@ -99,7 +102,7 @@ static io_connect_t open_connection(void) {
   io_service_t service = IOServiceGetMatchingService(
       kIOMainPortDefault, IOServiceNameMatching(DEXT_IDENTIFIER));
   if (!service) {
-    debugf("First match failed, trying full identifier...\n");
+    debugf("First match failed (USBDriver), trying full identifier...\n");
     service = IOServiceGetMatchingService(
         kIOMainPortDefault, IOServiceMatching(FULL_DEXT_IDENTIFIER));
     if (!service) {
@@ -111,15 +114,17 @@ static io_connect_t open_connection(void) {
   debugf("Found matching service: %u\n", service);
 
   io_connect_t connection;
-  debugf("Calling IOServiceOpen...\n");
-  ret = IOServiceOpen(service, mach_task_self_, kIOHIDServerConnectType,
-                      &connection);
+  uint32_t type = 0;
+  debugf("Calling IOServiceOpen... (service: %u, task: 0x%x, type: %u)\n",
+         service, mach_task_self(), type);
+
+  ret = IOServiceOpen(service, mach_task_self(), type, &connection);
   if (ret != kIOReturnSuccess) {
-    debugf("Could not open connection: 0x%x\n", ret);
+    debugf("IOServiceOpen FAILED: 0x%08x\n", ret);
     print_return(ret);
     return IO_OBJECT_NULL;
   }
-  debugf("IOServiceOpen successful: %u\n", connection);
+  debugf("IOServiceOpen successful! connection: %u\n", connection);
   return connection;
 }
 

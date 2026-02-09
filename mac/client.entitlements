@@ -2,11 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.developer.driverkit.userclient-access</key>
+	<dict>
+		<key>id.bulwark.VirtualUSBDriver.driver</key>
+		<true/>
+	</dict>
 	<key>com.apple.developer.driverkit.user-client-access</key>
-	<array>
-		<string>id.bulwark.VirtualUSBDriver.driver</string>
-	</array>
+	<dict>
+		<key>id.bulwark.VirtualUSBDriver.driver</key>
+		<true/>
+	</dict>
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<key>com.apple.security.get-task-allow</key>
+	<true/>
 </dict>
 </plist>

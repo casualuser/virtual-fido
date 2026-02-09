@@ -6,3 +6,5 @@ vault.json
 transport/dkit/output/
 transport/vhid/output/
 mac/build
+mac/USBDriver/build
+mac/output
