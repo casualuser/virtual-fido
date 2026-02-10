@@ -70,6 +70,9 @@ func (client *dummyCTAPClient) ApproveAccountCreation(relyingParty, rpID string)
 func (client *dummyCTAPClient) ApproveAccountLogin(credentialSource *identities.CredentialSource) bool {
 	return true
 }
+func (client *dummyCTAPClient) IsAlwaysApprove() bool {
+	return false
+}
 
 func TestMakeCredential(t *testing.T) {
 	client := &dummyCTAPClient{}

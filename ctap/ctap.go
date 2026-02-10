@@ -93,6 +93,7 @@ type CTAPClient interface {
 
 	ApproveAccountCreation(rpName, rpID string) bool
 	ApproveAccountLogin(credentialSource *identities.CredentialSource) bool
+	IsAlwaysApprove() bool
 }
 
 type CTAPServer struct {
@@ -237,6 +238,9 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 			return []byte{byte(ctap2ErrPINAuthInvalid)}
 		}
 	}
+	if server.client.IsAlwaysApprove() {
+		flags = flags | authDataFlagUserVerified
+	}
 
 	if !server.client.ApproveAccountCreation(args.RP.Name, args.RP.ID) {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
@@ -288,7 +292,7 @@ func (server *CTAPServer) handleGetInfo() []byte {
 			IsPlatform:          false,
 			CanResidentKey:      server.client.SupportsResidentKey(),
 			CanUserPresence:     true,
-			CanUserVerification: false,
+			CanUserVerification: server.client.SupportsPIN() || server.client.IsAlwaysApprove(),
 		},
 	}
 	if server.client.SupportsPIN() {
@@ -345,6 +349,9 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 			}
 			flags = flags | authDataFlagUserVerified
 		}
+	}
+	if server.client.IsAlwaysApprove() {
+		flags = flags | authDataFlagUserVerified
 	}
 
 	credentialSource := server.client.GetAssertionSource(args.RPID, args.AllowList)

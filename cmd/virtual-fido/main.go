@@ -167,6 +167,7 @@ func (p *promptApprover) runSignaling() {
 
 func (p *promptApprover) waitApproval(timeout time.Duration) bool {
 	if p.alwaysApprove {
+		time.Sleep(100 * time.Millisecond)
 		return true
 	}
 
@@ -195,6 +196,10 @@ func (p *promptApprover) waitApproval(timeout time.Duration) bool {
 			return false
 		}
 	}
+}
+
+func (p *promptApprover) IsAlwaysApprove() bool {
+	return p.alwaysApprove
 }
 
 func (p *promptApprover) ApproveClientAction(
