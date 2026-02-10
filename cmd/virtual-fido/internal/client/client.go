@@ -35,6 +35,7 @@ type State interface {
 // Approver proxies user prompts.
 type Approver interface {
 	ApproveClientAction(action fido_client.ClientAction, params fido_client.ClientActionRequestParams) (bool, int)
+	IsAlwaysApprove() bool
 }
 
 // SeedClient implements CTAP/U2F clients using deterministic credentials derived from a seed.
@@ -221,6 +222,10 @@ func (c *SeedClient) ApproveAccountLogin(cs *identities.CredentialSource) bool {
 		UserName:     cs.User.Name,
 	})
 	return ok
+}
+
+func (c *SeedClient) IsAlwaysApprove() bool {
+	return c.approver.IsAlwaysApprove()
 }
 
 // --- PIN stubs ---

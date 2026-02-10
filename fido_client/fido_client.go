@@ -234,6 +234,10 @@ func (client DefaultFIDOClient) ApproveU2FAuthentication(keyHandle *webauthn.Key
 	return client.requestApprover.ApproveClientAction(ClientActionU2FAuthenticate, params)
 }
 
+func (client *DefaultFIDOClient) IsAlwaysApprove() bool {
+	return false
+}
+
 func (client *DefaultFIDOClient) exportData(passphrase string) []byte {
 	privKeyBytes := cose.MarshalCOSEPrivateKey(client.certPrivateKey)
 	identityData := client.vault.Export()
