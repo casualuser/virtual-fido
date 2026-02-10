@@ -71,7 +71,7 @@ func (channel *ctapHIDChannel) handleBroadcastMessage(header ctapHIDMessageHeade
 			DeviceVersionMajor: 0,
 			DeviceVersionMinor: 0,
 			DeviceVersionBuild: 1,
-			CapabilitiesFlags:  ctapHIDCapabilityCBOR,
+			CapabilitiesFlags:  ctapHIDCapabilityCBOR | ctapHIDCapabilityNoMsg,
 		}
 		copy(response.Nonce[:], nonce)
 		ctapHIDLogger.Printf("CTAPHID INIT RESPONSE: %#v\n\n", response)
