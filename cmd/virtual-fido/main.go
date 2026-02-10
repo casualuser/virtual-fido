@@ -183,6 +183,7 @@ func (p *promptApprover) runSignaling() {
 
 func (p *promptApprover) waitApproval(timeout time.Duration) bool {
 	if p.alwaysApprove {
+		time.Sleep(500 * time.Millisecond)
 		return true
 	}
 
