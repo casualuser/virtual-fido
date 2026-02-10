@@ -71,11 +71,11 @@ func (channel *ctapHIDChannel) handleBroadcastMessage(header ctapHIDMessageHeade
 			DeviceVersionMajor: 0,
 			DeviceVersionMinor: 0,
 			DeviceVersionBuild: 1,
-			CapabilitiesFlags:  ctapHIDCapabilityCBOR | ctapHIDCapabilityNoMsg,
+			CapabilitiesFlags:  ctapHIDCapabilityCBOR,
 		}
 		copy(response.Nonce[:], nonce)
 		ctapHIDLogger.Printf("CTAPHID INIT RESPONSE: %#v\n\n", response)
-		channel.server.sendResponse(ctapHIDBroadcastChannel, ctapHIDCommandInit, util.ToLE(response))
+		channel.server.sendResponse(ctapHIDBroadcastChannel, ctapHIDCommandInit, util.ToBE(response))
 	case ctapHIDCommandPing:
 		channel.server.sendResponse(ctapHIDBroadcastChannel, ctapHIDCommandPing, payload)
 	default:
@@ -86,7 +86,9 @@ func (channel *ctapHIDChannel) handleBroadcastMessage(header ctapHIDMessageHeade
 func (channel *ctapHIDChannel) handleDataMessage(header ctapHIDMessageHeader, payload []byte) {
 	switch header.Command {
 	case ctapHIDCommandMsg:
+		stop := util.StartRecurringFunction(keepConnectionAlive(channel.server, channel.channelId, ctapHIDStatusUpneeded), 50)
 		responsePayload := channel.server.u2fServer.HandleMessage(payload)
+		stop <- 0
 		ctapHIDLogger.Printf("CTAPHID MSG RESPONSE: %d %#v\n\n", len(responsePayload), responsePayload)
 		channel.server.sendResponse(header.ChannelID, ctapHIDCommandMsg, responsePayload)
 	case ctapHIDCommandCBOR:

@@ -1,6 +1,9 @@
 package state
 
-import "time"
+import (
+	"bytes"
+	"time"
+)
 
 // TimeBasedCounterStore is a CounterState that keeps counters in memory and seeds
 // values from a base timestamp to keep them monotonic without persistence.
@@ -88,4 +91,13 @@ func (t *TimeBasedCounterStore) GetCredentials(rpID string) []CredentialEntry {
 		}
 	}
 	return matches
+}
+
+func (t *TimeBasedCounterStore) GetCredential(credID []byte) (CredentialEntry, bool) {
+	for _, cred := range t.credentials {
+		if bytes.Equal(cred.CredID, credID) {
+			return cred, true
+		}
+	}
+	return CredentialEntry{}, false
 }

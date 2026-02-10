@@ -1,5 +1,7 @@
 package state
 
+import "bytes"
+
 // CounterStore wraps a Store/Vault with simple increment helpers.
 type CounterStore struct {
 	store *Store
@@ -82,6 +84,18 @@ func (c *CounterStore) GetCredentials(rpID string) []CredentialEntry {
 		}
 	}
 	return matches
+}
+
+func (c *CounterStore) GetCredential(credID []byte) (CredentialEntry, bool) {
+	if c.vault == nil {
+		return CredentialEntry{}, false
+	}
+	for _, cred := range c.vault.Credentials {
+		if bytes.Equal(cred.CredID, credID) {
+			return cred, true
+		}
+	}
+	return CredentialEntry{}, false
 }
 
 // IncrementGlobal increments the global authentication counter (U2F style).

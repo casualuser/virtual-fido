@@ -1,6 +1,7 @@
 package fido_client
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"log"
@@ -139,6 +140,15 @@ func (client DefaultFIDOClient) ApproveAccountLogin(credentialSource *identities
 		UserName:     credentialSource.User.Name,
 	}
 	return client.requestApprover.ApproveClientAction(ClientActionFIDOGetAssertion, params)
+}
+
+func (client *DefaultFIDOClient) GetIdentity(id []byte) *identities.CredentialSource {
+	for _, source := range client.vault.CredentialSources {
+		if bytes.Equal(source.ID, id) {
+			return source
+		}
+	}
+	return nil
 }
 
 // -----------------------
