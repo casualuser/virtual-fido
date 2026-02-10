@@ -25,6 +25,12 @@ type CounterState interface {
 	CredValue(id []byte) (uint32, bool)
 	SetCred(id []byte, v uint32)
 	IncrementGlobal() uint32
+<<<<<<< HEAD
+=======
+	AddCredential(rpID string, userID, credID []byte)
+	GetCredentials(rpID string) []state.CredentialEntry
+	GetCredential(credID []byte) (state.CredentialEntry, bool)
+>>>>>>> 3bf1679 (CTAP/HID: Fix Safari compatibility (Endianness + Keep-alives + Broad Versions))
 }
 
 // Approver proxies user prompts.
@@ -119,6 +125,33 @@ func (c *SeedClient) BumpSignatureCounter(cs *identities.CredentialSource) int32
 	count := c.counters.IncrementCred(cs.ID)
 	cs.SignatureCounter = int32(count)
 	return cs.SignatureCounter
+}
+
+func (c *SeedClient) GetIdentity(id []byte) *identities.CredentialSource {
+	entry, ok := c.counters.GetCredential(id)
+	if !ok {
+		return nil
+	}
+	priv := deriveKey(c.seed, id)
+	cs := identities.CredentialSource{
+		Type:       "public-key",
+		ID:         id,
+		PrivateKey: &cose.SupportedCOSEPrivateKey{ECDSA: priv},
+		RelyingParty: &webauthn.PublicKeyCredentialRPEntity{
+			ID:   entry.RPID,
+			Name: entry.RPID,
+		},
+		User: &webauthn.PublicKeyCrendentialUserEntity{
+			ID:          entry.UserID,
+			Name:        "Stored User",
+			DisplayName: "Stored User",
+		},
+	}
+	val, ok := c.counters.CredValue(id)
+	if ok {
+		cs.SignatureCounter = int32(val)
+	}
+	return &cs
 }
 
 func (c *SeedClient) CreateAttestationCertificiate(priv *cose.SupportedCOSEPrivateKey) []byte {

@@ -282,7 +282,6 @@ type getInfoResponse struct {
 
 func (server *CTAPServer) handleGetInfo() []byte {
 	response := getInfoResponse{
-	response := getInfoResponse{
 		Versions: []string{"FIDO_2_1"},
 		AAGUID:   DefaultAAGUID,
 		Options: getInfoOptions{

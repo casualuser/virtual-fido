@@ -23,8 +23,9 @@ import (
 // AuthenticationCounter is the global U2F-style counter.
 type Vault struct {
 	// Counters is runtime-only map keyed by raw credential bytes (string form).
-	Counters map[string]uint32 `cbor:"-"`
-	Entries  []CounterEntry    `cbor:"1,keyasint,omitempty"`
+	Counters    map[string]uint32 `cbor:"-"`
+	Entries     []CounterEntry    `cbor:"1,keyasint,omitempty"`
+	Credentials []CredentialEntry `cbor:"3,keyasint,omitempty"`
 
 	AuthenticationCounter uint32 `cbor:"2,keyasint"`
 }
@@ -33,6 +34,12 @@ type Vault struct {
 type CounterEntry struct {
 	ID    []byte `cbor:"1,keyasint"`
 	Count uint32 `cbor:"2,keyasint"`
+}
+
+type CredentialEntry struct {
+	RPID   string `cbor:"1,keyasint"`
+	UserID []byte `cbor:"2,keyasint"`
+	CredID []byte `cbor:"3,keyasint"`
 }
 
 // Store persists Vault as encrypted CBOR using a key derived from seed.

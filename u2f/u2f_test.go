@@ -17,6 +17,7 @@ import (
 
 	"github.com/bulwarkid/virtual-fido/cose"
 	"github.com/bulwarkid/virtual-fido/crypto"
+	"github.com/bulwarkid/virtual-fido/identities"
 	"github.com/bulwarkid/virtual-fido/util"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 )
@@ -108,6 +109,10 @@ func (client *DummyU2FClient) ApproveU2FRegistration(keyHandle *webauthn.KeyHand
 
 func (client *DummyU2FClient) ApproveU2FAuthentication(keyHandle *webauthn.KeyHandle) bool {
 	return true
+}
+
+func (client *DummyU2FClient) GetIdentity(id []byte) *identities.CredentialSource {
+	return nil
 }
 
 func u2fHeader(command U2FCommand, param1 uint8, param2 uint8) []byte {

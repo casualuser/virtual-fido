@@ -23,8 +23,8 @@ type ctapHIDTransaction struct {
 func newCTAPHIDTransaction(message []byte) *ctapHIDTransaction {
 	transaction := ctapHIDTransaction{}
 	buffer := bytes.NewBuffer(message)
-	channelId := util.ReadLE[ctapHIDChannelID](buffer)
-	command := util.ReadLE[ctapHIDCommand](buffer)
+	channelId := util.ReadBE[ctapHIDChannelID](buffer)
+	command := util.ReadBE[ctapHIDCommand](buffer)
 	if command&(1<<7) == 0 {
 		// Non-command (likely a sequence number)
 		ctapHIDLogger.Printf("INVALID COMMAND: %x", command)
@@ -64,12 +64,12 @@ func (transaction *ctapHIDTransaction) addMessage(message []byte) {
 		return
 	}
 	buffer := bytes.NewBuffer(message)
-	channelId := util.ReadLE[ctapHIDChannelID](buffer)
+	channelId := util.ReadBE[ctapHIDChannelID](buffer)
 	if channelId != transaction.result.header.ChannelID {
 		transaction.error(ctapHIDErrorInvalidChannel)
 		return
 	}
-	sequenceNumber := util.ReadLE[uint8](buffer)
+	sequenceNumber := util.ReadBE[uint8](buffer)
 	if sequenceNumber == uint8(ctapHIDCommandCancel) {
 		transaction.cancel()
 		return

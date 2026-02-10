@@ -1,14 +1,18 @@
 package state
 
-import "time"
+import (
+	"bytes"
+	"time"
+)
 
 // TimeBasedCounterStore is a CounterState that keeps counters in memory and seeds
 // values from a base timestamp to keep them monotonic without persistence.
 type TimeBasedCounterStore struct {
-	base       int64
-	now        func() time.Time
-	credCounts map[string]uint32
-	global     uint32
+	base        int64
+	now         func() time.Time
+	credCounts  map[string]uint32
+	credentials []CredentialEntry
+	global      uint32
 }
 
 // NewTimeBasedCounterStore creates an in-memory counter store using the given base epoch
@@ -66,4 +70,31 @@ func (t *TimeBasedCounterStore) nextValue(last uint32) uint32 {
 		candidate = last + 1
 	}
 	return candidate
+}
+
+func (t *TimeBasedCounterStore) AddCredential(rpID string, userID, credID []byte) {
+	t.credentials = append(t.credentials, CredentialEntry{
+		RPID:   rpID,
+		UserID: append([]byte(nil), userID...),
+		CredID: append([]byte(nil), credID...),
+	})
+}
+
+func (t *TimeBasedCounterStore) GetCredentials(rpID string) []CredentialEntry {
+	var matches []CredentialEntry
+	for _, cred := range t.credentials {
+		if cred.RPID == rpID {
+			matches = append(matches, cred)
+		}
+	}
+	return matches
+}
+
+func (t *TimeBasedCounterStore) GetCredential(credID []byte) (CredentialEntry, bool) {
+	for _, cred := range t.credentials {
+		if bytes.Equal(cred.CredID, credID) {
+			return cred, true
+		}
+	}
+	return CredentialEntry{}, false
 }

@@ -1,5 +1,7 @@
 package state
 
+import "bytes"
+
 // CounterStore wraps a Store/Vault with simple increment helpers.
 type CounterStore struct {
 	store *Store
@@ -56,6 +58,44 @@ func (c *CounterStore) SetCred(id []byte, v uint32) {
 	}
 	c.vault.Counters[encodeKey(id)] = v
 	_ = c.store.Save(c.vault)
+}
+
+func (c *CounterStore) AddCredential(rpID string, userID, credID []byte) {
+	if c.vault == nil {
+		return
+	}
+	// Check if exists? For now, just append.
+	c.vault.Credentials = append(c.vault.Credentials, CredentialEntry{
+		RPID:   rpID,
+		UserID: append([]byte(nil), userID...), // Copy
+		CredID: append([]byte(nil), credID...), // Copy
+	})
+	_ = c.store.Save(c.vault)
+}
+
+func (c *CounterStore) GetCredentials(rpID string) []CredentialEntry {
+	if c.vault == nil {
+		return nil
+	}
+	var matches []CredentialEntry
+	for _, cred := range c.vault.Credentials {
+		if cred.RPID == rpID {
+			matches = append(matches, cred)
+		}
+	}
+	return matches
+}
+
+func (c *CounterStore) GetCredential(credID []byte) (CredentialEntry, bool) {
+	if c.vault == nil {
+		return CredentialEntry{}, false
+	}
+	for _, cred := range c.vault.Credentials {
+		if bytes.Equal(cred.CredID, credID) {
+			return cred, true
+		}
+	}
+	return CredentialEntry{}, false
 }
 
 // IncrementGlobal increments the global authentication counter (U2F style).
