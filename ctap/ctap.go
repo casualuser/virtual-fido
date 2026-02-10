@@ -242,7 +242,7 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
 		return []byte{byte(ctap2ErrOperationDenied)}
 	}
-	flags = flags | authDataFlagUserPresent | authDataFlagUserVerified | authDataFlagBackupEligibility | authDataFlagBackupState
+	flags = flags | authDataFlagUserPresent | authDataFlagBackupEligibility | authDataFlagBackupState
 
 	credentialSource := server.client.NewCredentialSource(args.PubKeyCredParams, args.ExcludeList, args.RP, args.User)
 	if credentialSource == nil {
@@ -288,7 +288,7 @@ func (server *CTAPServer) handleGetInfo() []byte {
 			IsPlatform:          false,
 			CanResidentKey:      server.client.SupportsResidentKey(),
 			CanUserPresence:     true,
-			CanUserVerification: true,
+			CanUserVerification: false,
 		},
 	}
 	if server.client.SupportsPIN() {
@@ -359,7 +359,7 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 			ctapLogger.Printf("ERROR: Unapproved action (Account login)")
 			return []byte{byte(ctap2ErrOperationDenied)}
 		}
-		flags = flags | authDataFlagUserPresent | authDataFlagUserVerified | authDataFlagBackupEligibility | authDataFlagBackupState
+		flags = flags | authDataFlagUserPresent | authDataFlagBackupEligibility | authDataFlagBackupState
 	}
 
 	newCount := server.client.BumpSignatureCounter(credentialSource)
