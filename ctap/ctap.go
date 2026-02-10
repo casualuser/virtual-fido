@@ -133,6 +133,8 @@ type authDataFlags uint8
 const (
 	authDataFlagUserPresent           authDataFlags = 0b00000001
 	authDataFlagUserVerified          authDataFlags = 0b00000100
+	authDataFlagBackupEligibility     authDataFlags = 0b00001000
+	authDataFlagBackupState           authDataFlags = 0b00010000
 	authDataFlagAttestedDataIncluded  authDataFlags = 0b01000000
 	authDataFlagExtensionDataIncluded authDataFlags = 0b10000000
 )
@@ -240,7 +242,7 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		ctapLogger.Printf("ERROR: Unapproved action (Create account)")
 		return []byte{byte(ctap2ErrOperationDenied)}
 	}
-	flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
+	flags = flags | authDataFlagUserPresent | authDataFlagUserVerified | authDataFlagBackupEligibility | authDataFlagBackupState
 
 	credentialSource := server.client.NewCredentialSource(args.PubKeyCredParams, args.ExcludeList, args.RP, args.User)
 	if credentialSource == nil {
@@ -280,7 +282,8 @@ type getInfoResponse struct {
 
 func (server *CTAPServer) handleGetInfo() []byte {
 	response := getInfoResponse{
-		Versions: []string{"FIDO_2_0", "FIDO_2_1", "U2F_V2"},
+	response := getInfoResponse{
+		Versions: []string{"FIDO_2_1"},
 		AAGUID:   DefaultAAGUID,
 		Options: getInfoOptions{
 			IsPlatform:          false,
@@ -357,7 +360,7 @@ func (server *CTAPServer) handleGetAssertion(data []byte) []byte {
 			ctapLogger.Printf("ERROR: Unapproved action (Account login)")
 			return []byte{byte(ctap2ErrOperationDenied)}
 		}
-		flags = flags | authDataFlagUserPresent | authDataFlagUserVerified
+		flags = flags | authDataFlagUserPresent | authDataFlagUserVerified | authDataFlagBackupEligibility | authDataFlagBackupState
 	}
 
 	newCount := server.client.BumpSignatureCounter(credentialSource)
