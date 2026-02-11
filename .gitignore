@@ -1,5 +1,12 @@
 /target
 vault.data
-.DS_store
+.DS_Store
 /demo
 vault.json
+transport/dkit/output/
+transport/vhid/output/
+mac/build/
+mac/USBDriver/build/
+mac/output/
+/transport/*/output/
+/output/

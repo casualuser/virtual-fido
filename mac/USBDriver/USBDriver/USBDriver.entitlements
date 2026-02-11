@@ -10,5 +10,7 @@
 	<true/>
 	<key>com.apple.developer.driverkit</key>
 	<true/>
+	<key>com.apple.developer.driverkit.allow-any-user-client-access</key>
+	<true/>
 </dict>
 </plist>
