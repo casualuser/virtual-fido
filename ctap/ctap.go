@@ -210,7 +210,10 @@ type MakeCredentialResponse struct {
 func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 	var args MakeCredentialArgs
 	err := cbor.Unmarshal(data, &args)
-	util.CheckErr(err, fmt.Sprintf("Could not decode CBOR for MAKE_CREDENTIAL: %s %v", err, data))
+	if err != nil {
+		ctapLogger.Printf("Could not decode CBOR for MAKE_CREDENTIAL: %s %v\n", err, data)
+		return []byte{byte(ctap2ErrInvalidCBOR)}
+	}
 	ctapLogger.Printf("MAKE CREDENTIAL: %s\n\n", args)
 	var flags authDataFlags = 0
 
@@ -271,12 +274,24 @@ func (server *CTAPServer) handleMakeCredential(data []byte) []byte {
 		authenticatorData = append(authenticatorData, extensionData...)
 	}
 
-	// We use "none" attestation here because this is a virtual authenticator
-	// and does not have a hardware-backed attestation key.
+	// We use "packed" attestation if the client supports generating a certificate.
+	// Otherwise we fall back to "none".
 	response := MakeCredentialResponse{
 		AuthData:             authenticatorData,
 		FormatIdentifer:      "none",
 		AttestationStatement: map[string]interface{}{},
+	}
+
+	certBytes := server.client.CreateAttestationCertificiate(credentialSource.PrivateKey)
+	if certBytes != nil {
+		sigData := append(authenticatorData, args.ClientDataHash...)
+		signature := credentialSource.PrivateKey.Sign(sigData)
+		response.FormatIdentifer = "packed"
+		response.AttestationStatement = map[string]interface{}{
+			"alg": int64(cose.COSE_ALGORITHM_ID_ES256),
+			"sig": signature,
+			"x5c": []interface{}{certBytes},
+		}
 	}
 	ctapLogger.Printf("MAKE CREDENTIAL RESPONSE: %#v\n\n", response)
 	return append([]byte{byte(ctap1ErrSuccess)}, util.MarshalCBOR(response)...)

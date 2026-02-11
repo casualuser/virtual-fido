@@ -39,7 +39,7 @@ func main() {
 		Version: Version,
 	}
 
-	root.AddCommand(genSeedCmd(), runCmd(), onlineOnlyCmd(), offlineOnlyCmd(), versionCmd())
+	root.AddCommand(genSeedCmd(), runCmd(), onlineOnlyCmd(), offlineOnlyCmd(), versionCmd(), manageCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -632,4 +632,68 @@ func runOfflineVault(seedFile, vaultPath string) error {
 		fmt.Println(respHex)
 	}
 	return scanner.Err()
+}
+
+func manageCmd() *cobra.Command {
+	var seedFile string
+	var countersPath string
+
+	cmd := &cobra.Command{
+		Use:   "manage",
+		Short: "Manage resident keys in the vault",
+	}
+
+	cmd.PersistentFlags().StringVar(&seedFile, "seed-file", "", "path to hex-encoded seed (required)")
+	cmd.PersistentFlags().StringVar(&countersPath, "counters", "", "path to encrypted counter store (required)")
+	_ = cmd.MarkPersistentFlagRequired("seed-file")
+	_ = cmd.MarkPersistentFlagRequired("counters")
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List resident credentials",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			seedBytes, err := seed.Load(seedFile)
+			if err != nil {
+				return fmt.Errorf("load seed: %w", err)
+			}
+			store := state.NewStore(countersPath, seedBytes)
+			cs, err := state.NewCounterStore(store)
+			if err != nil {
+				return fmt.Errorf("load vault: %w", err)
+			}
+			fmt.Print(cs.String())
+			return nil
+		},
+	}
+
+	deleteCmd := &cobra.Command{
+		Use:   "delete <cred-id-hex>",
+		Short: "Delete a resident credential by ID",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credID, err := hex.DecodeString(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid hex credential ID: %w", err)
+			}
+			seedBytes, err := seed.Load(seedFile)
+			if err != nil {
+				return fmt.Errorf("load seed: %w", err)
+			}
+			store := state.NewStore(countersPath, seedBytes)
+			cs, err := state.NewCounterStore(store)
+			if err != nil {
+				return fmt.Errorf("load vault: %w", err)
+			}
+			if cs.DeleteCredential(credID) {
+				fmt.Printf("Deleted credential %x\n", credID)
+			} else {
+				fmt.Printf("Credential %x not found\n", credID)
+				return fmt.Errorf("not found")
+			}
+			return nil
+		},
+	}
+
+	cmd.AddCommand(listCmd, deleteCmd)
+	return cmd
 }

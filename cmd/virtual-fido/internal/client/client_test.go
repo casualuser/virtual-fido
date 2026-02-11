@@ -15,6 +15,10 @@ func (d *DummyApprover) ApproveClientAction(action fido_client.ClientAction, par
 	return true, 0
 }
 
+func (d *DummyApprover) IsAlwaysApprove() bool {
+	return true
+}
+
 func TestResidentKeys(t *testing.T) {
 	// Setup
 	seed := []byte("test-seed")

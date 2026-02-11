@@ -17,6 +17,7 @@ type flexibleMockClient struct {
 	dummyCTAPClient
 	approveCreation bool
 	approveLogin    bool
+	alwaysApprove   bool
 }
 
 func (m *flexibleMockClient) ApproveAccountCreation(rpName, rpID string) bool {
@@ -27,8 +28,12 @@ func (m *flexibleMockClient) ApproveAccountLogin(cs *identities.CredentialSource
 	return m.approveLogin
 }
 
+func (m *flexibleMockClient) IsAlwaysApprove() bool {
+	return m.alwaysApprove
+}
+
 func TestGetInfo_FIDO21_Details(t *testing.T) {
-	client := &dummyCTAPClient{}
+	client := &flexibleMockClient{alwaysApprove: true}
 	server := NewCTAPServer(client)
 
 	respBytes := server.handleGetInfo()
@@ -110,7 +115,7 @@ func TestGetAssertion_NotFound(t *testing.T) {
 }
 
 func TestMakeCredential_Flags(t *testing.T) {
-	client := &flexibleMockClient{approveCreation: true}
+	client := &flexibleMockClient{approveCreation: true, alwaysApprove: true}
 	server := NewCTAPServer(client)
 
 	args := MakeCredentialArgs{

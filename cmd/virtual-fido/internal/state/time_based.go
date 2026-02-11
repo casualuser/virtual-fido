@@ -101,3 +101,14 @@ func (t *TimeBasedCounterStore) GetCredential(credID []byte) (CredentialEntry, b
 	}
 	return CredentialEntry{}, false
 }
+
+func (t *TimeBasedCounterStore) DeleteCredential(credID []byte) bool {
+	for i, c := range t.credentials {
+		if bytes.Equal(c.CredID, credID) {
+			t.credentials = append(t.credentials[:i], t.credentials[i+1:]...)
+			delete(t.credCounts, encodeKey(credID))
+			return true
+		}
+	}
+	return false
+}

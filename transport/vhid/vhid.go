@@ -44,7 +44,7 @@ var hidLogger = util.NewLogger("[HID] ", util.LogLevelTrace)
 var ctapHIDServer *ctap_hid.CTAPHIDServer
 var virtualDevice C.hid_virtual_device_t
 
-var stopChannel = make(chan bool)
+var stopChannel = make(chan bool, 1)
 
 type VirtualDevice struct {
 	server        *ctap_hid.CTAPHIDServer
@@ -89,7 +89,10 @@ func (d *VirtualDevice) Stop() {
 }
 
 func Stop() {
-	stopChannel <- true
+	select {
+	case stopChannel <- true:
+	default:
+	}
 }
 
 func Start(server *ctap_hid.CTAPHIDServer) {
