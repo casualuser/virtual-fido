@@ -53,7 +53,7 @@ func (server *CTAPHIDServer) sendResponsePackets(packets [][]byte) {
 
 func (server *CTAPHIDServer) HandleMessage(message []byte) {
 	buffer := bytes.NewBuffer(message)
-	channelId := util.ReadLE[ctapHIDChannelID](buffer)
+	channelId := util.ReadBE[ctapHIDChannelID](buffer)
 	channel, exists := server.channels[channelId]
 	if !exists {
 		server.sendError(channelId, ctapHIDErrorInvalidChannel)
@@ -85,11 +85,11 @@ func createResponsePackets(channelId ctapHIDChannelID, command ctapHIDCommand, p
 	for len(payload) > 0 {
 		packet := []byte{}
 		if sequence < 0 {
-			packet = append(packet, util.ToLE(channelId)...)
-			packet = append(packet, util.ToLE(command)...)
+			packet = append(packet, util.ToBE(channelId)...)
+			packet = append(packet, util.ToBE(command)...)
 			packet = append(packet, util.ToBE(uint16(len(payload)))...)
 		} else {
-			packet = append(packet, util.ToLE(channelId)...)
+			packet = append(packet, util.ToBE(channelId)...)
 			packet = append(packet, byte(uint8(sequence)))
 		}
 		sequence++

@@ -9,6 +9,7 @@ import (
 
 	"github.com/bulwarkid/virtual-fido/cose"
 	"github.com/bulwarkid/virtual-fido/crypto"
+	"github.com/bulwarkid/virtual-fido/identities"
 	"github.com/bulwarkid/virtual-fido/util"
 	"github.com/bulwarkid/virtual-fido/webauthn"
 	"github.com/fxamacker/cbor/v2"
@@ -71,6 +72,7 @@ type U2FClient interface {
 	CreateAttestationCertificiate(privateKey *cose.SupportedCOSEPrivateKey) []byte
 	ApproveU2FRegistration(keyHandle *webauthn.KeyHandle) bool
 	ApproveU2FAuthentication(keyHandle *webauthn.KeyHandle) bool
+	GetIdentity(id []byte) *identities.CredentialSource
 }
 
 type U2FServer struct {
@@ -181,23 +183,47 @@ func (server *U2FServer) handleU2FAuthenticate(header U2FMessageHeader, request 
 
 	keyHandleLength := util.ReadLE[uint8](requestReader)
 	encryptedKeyHandleBytes := util.Read(requestReader, uint(keyHandleLength))
+
+	var cosePrivateKey *cose.SupportedCOSEPrivateKey
 	keyHandle, err := server.openKeyHandle(encryptedKeyHandleBytes)
-	if err != nil {
-		u2fLogger.Printf("U2F AUTHENTICATE: Invalid key handle given - %s %#v\n\n", err, encryptedKeyHandleBytes)
-		return util.ToBE(u2f_SW_WRONG_DATA)
+	if err == nil {
+		if keyHandle.PrivateKey == nil || bytes.Compare(keyHandle.ApplicationID, application) != 0 {
+			u2fLogger.Printf("U2F AUTHENTICATE: Invalid input data %#v\n\n", keyHandle)
+			return util.ToBE(u2f_SW_WRONG_DATA)
+		}
+		privateKey, err := x509.ParseECPrivateKey(keyHandle.PrivateKey)
+		util.CheckErr(err, "Could not decode private key")
+		cosePrivateKey = &cose.SupportedCOSEPrivateKey{ECDSA: privateKey}
+	} else {
+		// Fallback: try to look up in vault (for FIDO2 credentials)
+		credentialSource := server.client.GetIdentity(encryptedKeyHandleBytes)
+		if credentialSource == nil {
+			u2fLogger.Printf("U2F AUTHENTICATE: Identity not found in vault - %#v\n\n", encryptedKeyHandleBytes)
+			return util.ToBE(u2f_SW_WRONG_DATA)
+		}
+		// Check if application ID matches RP ID hash
+		rpIdHash := crypto.HashSHA256([]byte(credentialSource.RelyingParty.ID))
+		if !bytes.Equal(rpIdHash, application) {
+			u2fLogger.Printf("U2F AUTHENTICATE: AppID mismatch: %x != %x\n\n", rpIdHash, application)
+			return util.ToBE(u2f_SW_WRONG_DATA)
+		}
+		cosePrivateKey = credentialSource.PrivateKey
+		// We can't pass a vault source to ApproveU2FAuthentication because it expects a KeyHandle.
+		// However, DefaultFIDOClient's ApproveU2FAuthentication currently ignores the argument.
+		// If it needed to be correct, we'd need to update the interface to accept either.
+		if control == u2f_AUTH_CONTROL_ENFORCE_USER_PRESENCE_AND_SIGN {
+			if !server.client.ApproveU2FAuthentication(nil) {
+				return util.ToBE(u2f_SW_CONDITIONS_NOT_SATISFIED)
+			}
+		}
 	}
-	if keyHandle.PrivateKey == nil || bytes.Compare(keyHandle.ApplicationID, application) != 0 {
-		u2fLogger.Printf("U2F AUTHENTICATE: Invalid input data %#v\n\n", keyHandle)
-		return util.ToBE(u2f_SW_WRONG_DATA)
-	}
-	privateKey, err := x509.ParseECPrivateKey(keyHandle.PrivateKey)
-	util.CheckErr(err, "Could not decode private key")
-	cosePrivateKey := &cose.SupportedCOSEPrivateKey{ECDSA: privateKey}
 
 	if control == u2f_AUTH_CONTROL_CHECK_ONLY {
 		return util.ToBE(u2f_SW_CONDITIONS_NOT_SATISFIED)
 	} else if control == u2f_AUTH_CONTROL_ENFORCE_USER_PRESENCE_AND_SIGN || control == u2f_AUTH_CONTROL_SIGN {
-		if control == u2f_AUTH_CONTROL_ENFORCE_USER_PRESENCE_AND_SIGN {
+		// Note: The Approval check was moved into the if err == nil block above for vault identities.
+		// For legacy U2F identities, we'll keep the existing logic here.
+		if err == nil && control == u2f_AUTH_CONTROL_ENFORCE_USER_PRESENCE_AND_SIGN {
 			if !server.client.ApproveU2FAuthentication(keyHandle) {
 				return util.ToBE(u2f_SW_CONDITIONS_NOT_SATISFIED)
 			}
