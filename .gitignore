@@ -15,3 +15,5 @@ vault.json
 /mac/output/
 /transport/*/output/
 /output/
+/USBDriverInstaller.app/
+/videos/
