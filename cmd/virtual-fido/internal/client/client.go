@@ -30,6 +30,7 @@ type State interface {
 	AddCredential(rpID string, userID, credID []byte)
 	GetCredentials(rpID string) []state.CredentialEntry
 	GetCredential(credID []byte) (state.CredentialEntry, bool)
+	DeleteCredential(credID []byte) bool
 }
 
 // Approver proxies user prompts.

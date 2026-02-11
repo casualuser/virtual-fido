@@ -242,3 +242,18 @@ func populateEntries(v *Vault) {
 		})
 	}
 }
+
+// DeleteCredential removes a credential from the vault by its ID.
+// Returns true if the credential was found and deleted.
+func (v *Vault) DeleteCredential(credID []byte) bool {
+	for i, c := range v.Credentials {
+		if string(c.CredID) == string(credID) {
+			// Remove from Credentials list
+			v.Credentials = append(v.Credentials[:i], v.Credentials[i+1:]...)
+			// Remove from Counters map
+			delete(v.Counters, string(credID))
+			return true
+		}
+	}
+	return false
+}

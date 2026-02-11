@@ -112,6 +112,18 @@ func encodeKey(id []byte) string {
 	return string(id)
 }
 
+// DeleteCredential removes the credential from the vault.
+func (c *CounterStore) DeleteCredential(credID []byte) bool {
+	if c.vault == nil {
+		return false
+	}
+	deleted := c.vault.DeleteCredential(credID)
+	if deleted {
+		_ = c.store.Save(c.vault)
+	}
+	return deleted
+}
+
 // String renders a human-readable view of counters.
 func (c *CounterStore) String() string {
 	return c.vault.String()
