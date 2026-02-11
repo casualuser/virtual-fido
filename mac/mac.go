@@ -8,6 +8,7 @@ import (
 )
 
 // #cgo LDFLAGS: -L${SRCDIR}/output -lUSBDriverLib
+// #include <stdlib.h>
 // #include "client.h"
 import "C"
 
@@ -17,15 +18,17 @@ var ctapHIDServer *ctap_hid.CTAPHIDServer
 
 func handleResponse(response []byte) {
 	if len(response) > 0 {
-		//macLogger.Printf("Sending Bytes: %#v\n\n", response)
-		C.send_data(C.CBytes(response), C.int(len(response)))
+		macLogger.Printf("Sending Bytes: %#v\n\n", response)
+		cBytes := C.CBytes(response)
+		defer C.free(cBytes)
+		C.send_data(cBytes, C.int(len(response)))
 	}
 }
 
 //export receiveDataCallback
 func receiveDataCallback(dataPointer unsafe.Pointer, length C.int) {
 	data := C.GoBytes(dataPointer, length)
-	//macLogger.Printf("Received Bytes: %d %#v\n\n", length, data)
+	macLogger.Printf("Received Bytes: %d %#v\n\n", length, data)
 	ctapHIDServer.HandleMessage(data)
 }
 
@@ -33,4 +36,8 @@ func Start(server *ctap_hid.CTAPHIDServer) {
 	server.SetResponseHandler(handleResponse)
 	ctapHIDServer = server
 	C.start_device()
+}
+
+func Stop() {
+	C.stop_device()
 }

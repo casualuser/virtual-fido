@@ -1,6 +1,7 @@
 package fido_client
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"log"
@@ -17,6 +18,7 @@ type ClientAction uint8
 type ClientActionRequestParams struct {
 	RelyingParty string
 	UserName     string
+	Options      []string // For selecting from multiple identities
 }
 
 const (
@@ -113,12 +115,19 @@ func (client *DefaultFIDOClient) GetAssertionSource(relyingPartyID string, allow
 
 	// TODO: Allow user to choose credential source
 	credentialSource := sources[0]
-	credentialSource.SignatureCounter++
-	client.saveData()
 	return credentialSource
 }
 
-func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty string) bool {
+func (client *DefaultFIDOClient) BumpSignatureCounter(credentialSource *identities.CredentialSource) int32 {
+	credentialSource.SignatureCounter++
+	client.saveData()
+	return credentialSource.SignatureCounter
+}
+
+func (client DefaultFIDOClient) ApproveAccountCreation(relyingParty, rpID string) bool {
+	if relyingParty == "" {
+		relyingParty = rpID
+	}
 	params := ClientActionRequestParams{
 		RelyingParty: relyingParty,
 	}
@@ -131,6 +140,15 @@ func (client DefaultFIDOClient) ApproveAccountLogin(credentialSource *identities
 		UserName:     credentialSource.User.Name,
 	}
 	return client.requestApprover.ApproveClientAction(ClientActionFIDOGetAssertion, params)
+}
+
+func (client *DefaultFIDOClient) GetIdentity(id []byte) *identities.CredentialSource {
+	for _, source := range client.vault.CredentialSources {
+		if bytes.Equal(source.ID, id) {
+			return source
+		}
+	}
+	return nil
 }
 
 // -----------------------
@@ -214,6 +232,10 @@ func (client DefaultFIDOClient) ApproveU2FRegistration(keyHandle *webauthn.KeyHa
 func (client DefaultFIDOClient) ApproveU2FAuthentication(keyHandle *webauthn.KeyHandle) bool {
 	params := ClientActionRequestParams{}
 	return client.requestApprover.ApproveClientAction(ClientActionU2FAuthenticate, params)
+}
+
+func (client *DefaultFIDOClient) IsAlwaysApprove() bool {
+	return false
 }
 
 func (client *DefaultFIDOClient) exportData(passphrase string) []byte {

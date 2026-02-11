@@ -1,7 +1,7 @@
 all: lib
 
 dext:
-	xcodebuild -project USBDriver/USBDriver.xcodeproj -target USBDriver
+	xcodebuild -project USBDriver/USBDriver.xcodeproj -target USBDriver ARCHS="arm64e" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 	mv USBDriver/build/build/Release-driverkit/* ./output/
 
 lib: clean
